@@ -1,0 +1,7 @@
+name: ${name}
+version: ${version}
+main: center.bedwars.lobby.Lobby
+api-version: ${apiVersion}
+load: POSTWORLD
+authors: [ sheduxdev ]
+depend: [PlaceholderAPI, Retention]

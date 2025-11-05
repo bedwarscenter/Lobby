@@ -1,0 +1,80 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+
+        maven {
+            name = "spigotmc"
+            url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/"
+        }
+
+        maven {
+            name = "refinePublicRepo"
+            url = "https://maven.refinedev.xyz/public-repo"
+        }
+
+        maven {
+            name = "placeholderapi"
+            url = "https://repo.extendedclip.com/content/repositories/placeholderapi/"
+        }
+
+        maven {
+            name = "j4c0b3y"
+            url = "https://repo.j4c0b3y.net/public/"
+        }
+
+        maven {
+            name = "marcely"
+            url = "https://repo.marcely.de/repository/maven-public/"
+        }
+    }
+}
+
+def props = new Properties()
+def propsFile = file("gradle.properties")
+
+if (propsFile.exists()) {
+    propsFile.withInputStream {
+        props.load(it)
+    }
+}
+
+rootProject.name = props.getProperty("projectName")
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+
+        maven {
+            name = "spigotmc"
+            url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/"
+        }
+
+        maven {
+            name = "placeholderapi"
+            url = "https://repo.extendedclip.com/content/repositories/placeholderapi/"
+        }
+
+        maven {
+            name = "refinePublicRepo"
+            url = "https://maven.refinedev.xyz/public-repo"
+        }
+
+        maven {
+            name = "j4c0b3y"
+            url = "https://repo.j4c0b3y.net/public/"
+        }
+
+        maven {
+            name = "marcely"
+            url = "https://repo.marcely.de/repository/maven-public/"
+        }
+    }
+}
+
+buildCache {
+    local {
+        enabled = true
+        directory = new File(rootDir, ".gradle/build-cache")
+    }
+}

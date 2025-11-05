@@ -1,0 +1,103 @@
+plugins {
+    id "java"
+    id "java-library"
+    id("com.gradleup.shadow") version "${shadowJarVersion}"
+}
+
+group = project.findProperty("group")
+version = project.findProperty("version")
+description = project.findProperty("description")
+
+dependencies {
+    compileOnly("xyz.refinedev.spigot:Carbon-API:1.8.8-R0.1-SNAPSHOT") {
+        exclude group: 'me.carleslc.Simple-YAML', module: 'Simple-Yaml'
+        exclude group: 'me.lucko', module: 'spark-api'
+    }
+    compileOnly("org.paperspigot:PaperSpigot:1.8.8") {
+        exclude group: 'me.carleslc.Simple-YAML', module: 'Simple-Yaml'
+        exclude group: 'me.lucko', module: 'spark-api'
+    }
+    compileOnly "me.clip:placeholderapi:${project.findProperty("placeholderApiVersion")}"
+    compileOnly "xyz.refinedev.phoenix:pxAPI:${project.findProperty("phoenixApiVersion")}"
+    compileOnly "org.projectlombok:lombok:${project.findProperty("lombokVersion")}"
+    compileOnly "de.marcely.bedwars:API:${project.findProperty("mbedwarsApiVersion")}"
+    compileOnly fileTree(dir: 'libs', include: ['*.jar'])
+
+    implementation("redis.clients:jedis:${project.findProperty("jedisVersion")}")
+    implementation("org.mongodb:mongodb-driver-sync:${project.findProperty("mongoDriverVersion")}")
+    implementation("net.j4c0b3y.CommandAPI:bukkit:${project.findProperty("commandApiVersion")}")
+    implementation("net.j4c0b3y:MenuAPI-core:${project.findProperty("menuApiVersion")}")
+    implementation("net.j4c0b3y:ConfigAPI-core:${project.findProperty("configApiVersion")}")
+
+    annotationProcessor "org.projectlombok:lombok:${project.findProperty("lombokVersion")}"
+}
+
+def targetJavaVersion = project.findProperty("targetJavaVersion")?.toInteger() ?: 22
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+
+    if (JavaVersion.current() < javaVersion) {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = project.findProperty("sourceEncoding") ?: "UTF-8"
+    options.compilerArgs << "-parameters"
+    options.fork = true
+
+    sourceCompatibility = JavaVersion.VERSION_22
+    targetCompatibility = JavaVersion.VERSION_22
+
+    if (JavaVersion.current().isJava10Compatible()) {
+        options.release.set(targetJavaVersion)
+    }
+}
+
+processResources {
+    def props = [
+            version: version,
+            name: project.findProperty("projectName") ?: "ExtraPlaceholders",
+            description: description,
+            minecraftVersion: project.findProperty("minecraftVersion") ?: "1.8.9",
+            apiVersion: project.findProperty("apiVersion") ?: "1.8"
+    ]
+
+    inputs.properties(props)
+    filteringCharset(project.findProperty("sourceEncoding") ?: "UTF-8")
+
+    filesMatching("plugin.yml") {
+        expand(props)
+    }
+}
+
+shadowJar {
+    archiveBaseName.set(project.findProperty("projectName"))
+    archiveClassifier.set("")
+    archiveVersion.set(version.toString())
+
+    manifest {
+        attributes(
+                "Implementation-Title": project.findProperty("projectName"),
+                "Implementation-Version": version,
+                "Built-By": System.getProperty("user.name"),
+                "Built-JDK": System.getProperty("java.version"),
+                "Created-By": "Gradle ${gradle.gradleVersion}"
+        )
+    }
+
+    minimize()
+}
+
+build {
+    dependsOn shadowJar
+}
+
+clean {
+    delete project.findProperty("buildDir") ?: "build"
+}
