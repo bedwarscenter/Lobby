@@ -5,7 +5,7 @@ import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.dependency.dependencies.PhoenixDependency;
 import center.bedwars.lobby.parkour.ParkourManager;
-import org.bukkit.ChatColor;
+import center.bedwars.lobby.util.ColorUtil;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -52,19 +52,15 @@ public class JoinListener implements Listener {
             String messsage = SettingsConfiguration.JOIN_MESSAGES.get(player.getName());
             if (messsage == null || messsage.isEmpty()) return null;
 
-            return this.processMessage(messsage, player, playerRank);
+            return ColorUtil.color(messsage
+                    .replace("<player>", player.getName())
+                    .replace("<rank>", playerRank.getName())
+                    .replace("<color>", playerRank.getColorLegacy())
+            );
 
         } catch (Exception e) {
             Lobby.getINSTANCE().getLogger().warning("Error processing join message for " + player.getName() + ": " + e.getMessage());
             return null;
         }
-    }
-
-    private String processMessage(String message, Player player, IRank rank) {
-        return ChatColor.translateAlternateColorCodes('&', message
-                .replace("<player>", player.getName())
-                .replace("<rank>", rank.getName())
-                .replace("<color>", rank.getColorLegacy())
-        );
     }
 }

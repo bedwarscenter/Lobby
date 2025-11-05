@@ -18,7 +18,7 @@ public class LobbySyncListener implements Listener {
     private final LobbySyncManager syncManager;
 
     public LobbySyncListener() {
-        this.syncManager = Lobby.getINSTANCE()
+        this.syncManager = Lobby
                 .getManagerStorage()
                 .getManager(LobbySyncManager.class);
     }

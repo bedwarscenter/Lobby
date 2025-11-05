@@ -7,7 +7,7 @@ import center.bedwars.lobby.parkour.model.Parkour;
 import center.bedwars.lobby.parkour.model.ParkourCheckpoint;
 import center.bedwars.lobby.parkour.session.ParkourSession;
 import center.bedwars.lobby.parkour.session.ParkourSessionManager;
-import center.bedwars.lobby.parkour.util.ChatColor;
+import center.bedwars.lobby.util.ColorUtil;
 import eu.decentsoftware.holograms.api.DHAPI;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
 import lombok.Getter;
@@ -182,7 +182,7 @@ public class ParkourManager extends Manager {
     private void createHolograms(Parkour parkour) {
         Location startLoc = parkour.getStartLocation().clone().add(0.5, 2.5, 0.5);
         Hologram startHologram = DHAPI.createHologram(parkour.getId() + "_start", startLoc);
-        DHAPI.setHologramLines(startHologram, Collections.singletonList("&6&lSTART"));
+        DHAPI.setHologramLines(startHologram, Collections.singletonList(ColorUtil.color("&6&lSTART")));
         parkour.setStartHologram(startHologram);
 
         for (ParkourCheckpoint checkpoint : parkour.getCheckpoints()) {
@@ -191,13 +191,13 @@ public class ParkourManager extends Manager {
                     parkour.getId() + "_checkpoint_" + checkpoint.getNumber(),
                     checkpointLoc
             );
-            DHAPI.setHologramLines(checkpointHologram, Collections.singletonList("&e&lCHECKPOINT"));
+            DHAPI.setHologramLines(checkpointHologram, Collections.singletonList(ColorUtil.color("&e&lCHECKPOINT")));
             parkour.addCheckpointHologram(checkpoint.getNumber(), checkpointHologram);
         }
 
         Location finishLoc = parkour.getFinishLocation().clone().add(0.5, 2.5, 0.5);
         Hologram finishHologram = DHAPI.createHologram(parkour.getId() + "_finish", finishLoc);
-        DHAPI.setHologramLines(finishHologram, Collections.singletonList("&a&lEND"));
+        DHAPI.setHologramLines(finishHologram, Collections.singletonList(ColorUtil.color("&a&lEND")));
         parkour.setFinishHologram(finishHologram);
     }
 
@@ -209,7 +209,7 @@ public class ParkourManager extends Manager {
         ParkourSession session = new ParkourSession(player, parkour);
         sessionManager.addSession(player, session);
 
-        player.sendMessage(ChatColor.translate("&aParkour started!"));
+        ColorUtil.sendMessage(player, "&aParkour started!");
     }
 
     public void handleCheckpoint(Player player, Location location) {
@@ -228,7 +228,7 @@ public class ParkourManager extends Manager {
         }
 
         session.reachCheckpoint(checkpoint.getNumber());
-        player.sendMessage(ChatColor.translate("&aCheckpoint &e#" + checkpoint.getNumber() + " &areached!"));
+        ColorUtil.sendMessage(player, "&aCheckpoint &e#" + checkpoint.getNumber() + " &areached!");
     }
 
     public void handleFinish(Player player, Location location) {
@@ -248,28 +248,28 @@ public class ParkourManager extends Manager {
         int completions = playerCompletions.getOrDefault(player.getUniqueId(), 0) + 1;
         playerCompletions.put(player.getUniqueId(), completions);
 
-        player.sendMessage(ChatColor.translate("&a&lPARKOUR COMPLETED!"));
-        player.sendMessage(ChatColor.translate("&eTime: &f" + formatTime(timeTaken)));
-        player.sendMessage(ChatColor.translate("&eCheckpoints: &f" + checkpointsReached + "/" + totalCheckpoints));
-        player.sendMessage(ChatColor.translate("&eCompletions: &f" + completions));
+        ColorUtil.sendMessage(player, "&a&lPARKOUR COMPLETED!");
+        ColorUtil.sendMessage(player, "&eTime: &f" + formatTime(timeTaken));
+        ColorUtil.sendMessage(player, "&eCheckpoints: &f" + checkpointsReached + "/" + totalCheckpoints);
+        ColorUtil.sendMessage(player, "&eCompletions: &f" + completions);
 
         sessionManager.endSession(player);
     }
 
     public void resetPlayer(Player player) {
         if (!sessionManager.hasActiveSession(player)) {
-            player.sendMessage(ChatColor.translate("&cYou are not in a parkour!"));
+            ColorUtil.sendMessage(player, "&cYou are not in a parkour!");
             return;
         }
 
         sessionManager.endSession(player);
-        player.sendMessage(ChatColor.translate("&cParkour reset!"));
+        ColorUtil.sendMessage(player, "&cParkour reset!");
     }
 
     public void teleportToCheckpoint(Player player) {
         ParkourSession session = sessionManager.getSession(player);
         if (session == null) {
-            player.sendMessage(ChatColor.translate("&cYou are not in a parkour!"));
+            ColorUtil.sendMessage(player, "&cYou are not in a parkour!");
             return;
         }
 
@@ -279,17 +279,17 @@ public class ParkourManager extends Manager {
         }
 
         player.teleport(spawnLoc.clone().add(0.5, 1, 0.5));
-        player.sendMessage(ChatColor.translate("&aTeleported to checkpoint!"));
+        ColorUtil.sendMessage(player, "&aTeleported to checkpoint!");
     }
 
     public void quitParkour(Player player) {
         if (!sessionManager.hasActiveSession(player)) {
-            player.sendMessage(ChatColor.translate("&cYou are not in a parkour!"));
+            ColorUtil.sendMessage(player, "&cYou are not in a parkour!");
             return;
         }
 
         sessionManager.endSession(player);
-        player.sendMessage(ChatColor.translate("&cParkour quit!"));
+        ColorUtil.sendMessage(player, "&cParkour quit!");
     }
 
     public void handlePlayerQuit(Player player) {
