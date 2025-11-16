@@ -6,6 +6,7 @@ import center.bedwars.lobby.listener.listeners.general.WorldWeatherListener;
 import center.bedwars.lobby.listener.listeners.important.JoinListener;
 import center.bedwars.lobby.listener.listeners.important.QuitListener;
 import center.bedwars.lobby.listener.listeners.parkour.MoveListener;
+import center.bedwars.lobby.listener.listeners.parkour.ParkourListener;
 import center.bedwars.lobby.listener.listeners.sync.LobbySyncListener;
 import center.bedwars.lobby.manager.Manager;
 import org.bukkit.Bukkit;
@@ -23,6 +24,9 @@ public class ListenerManager extends Manager {
         registerListener(new JoinListener());
         registerListener(new QuitListener());
         registerListener(new MoveListener());
+        registerListener(new WorldWeatherListener());
+        registerListener(new WorldDayListener());
+        registerListener(new ParkourListener());
         registerListener(new LobbySyncListener());
     }
 
