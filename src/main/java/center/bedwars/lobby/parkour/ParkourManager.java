@@ -7,6 +7,7 @@ import center.bedwars.lobby.parkour.model.Parkour;
 import center.bedwars.lobby.parkour.model.ParkourCheckpoint;
 import center.bedwars.lobby.parkour.session.ParkourSession;
 import center.bedwars.lobby.parkour.session.ParkourSessionManager;
+import center.bedwars.lobby.parkour.task.ParkourActionBarTask;
 import center.bedwars.lobby.util.ColorUtil;
 import eu.decentsoftware.holograms.api.DHAPI;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
@@ -17,6 +18,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 import xyz.refinedev.spigot.features.chunk.IChunkAPI;
 
 import java.util.*;
@@ -32,6 +34,8 @@ public class ParkourManager extends Manager {
 
     private DependencyManager dependencyManager;
     private IChunkAPI chunkAPI;
+    private BukkitTask refreshTask;
+    private BukkitTask actionBarTask;
 
     @Override
     protected void onLoad() {
@@ -46,11 +50,22 @@ public class ParkourManager extends Manager {
         }
 
         this.chunkAPI = dependencyManager.getCarbon().getChunkRegistry();
+
+        this.actionBarTask = new ParkourActionBarTask(this).runTaskTimer(Lobby.getINSTANCE(), 0L, 10L);
+
         scanAndInitializeParkours();
     }
 
     @Override
     protected void onUnload() {
+        if (refreshTask != null) {
+            refreshTask.cancel();
+        }
+
+        if (actionBarTask != null) {
+            actionBarTask.cancel();
+        }
+
         parkours.values().forEach(parkour -> {
             if (parkour.getStartHologram() != null) {
                 DHAPI.removeHologram(parkour.getStartHologram().getName());
@@ -63,6 +78,32 @@ public class ParkourManager extends Manager {
         parkours.clear();
         sessionManager.clearAllSessions();
         playerCompletions.clear();
+    }
+
+    public void scheduleParkourRefresh() {
+        if (refreshTask != null) {
+            refreshTask.cancel();
+        }
+
+        refreshTask = Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
+            Bukkit.getLogger().info("[ParkourManager] Refreshing parkours...");
+            refreshParkours();
+        }, 60L);
+    }
+
+    public void refreshParkours() {
+        parkours.values().forEach(parkour -> {
+            if (parkour.getStartHologram() != null) {
+                DHAPI.removeHologram(parkour.getStartHologram().getName());
+            }
+            parkour.getCheckpointHolograms().values().forEach(hologram -> DHAPI.removeHologram(hologram.getName()));
+            if (parkour.getFinishHologram() != null) {
+                DHAPI.removeHologram(parkour.getFinishHologram().getName());
+            }
+        });
+        parkours.clear();
+
+        scanAndInitializeParkours();
     }
 
     private void scanAndInitializeParkours() {
@@ -111,6 +152,7 @@ public class ParkourManager extends Manager {
                     .collect(Collectors.toList());
 
             processParkourBlocks(allBlocks);
+            Bukkit.getLogger().info("[ParkourManager] Found " + parkours.size() + " parkour(s)!");
         }));
     }
 
@@ -132,6 +174,8 @@ public class ParkourManager extends Manager {
                     if (parkour != null) {
                         parkours.put(parkour.getId(), parkour);
                         createHolograms(parkour);
+                        Bukkit.getLogger().info("[ParkourManager] Registered parkour: " + parkour.getId() +
+                                " (Checkpoints: " + parkour.getCheckpoints().size() + ")");
                     }
                 }
             }
@@ -155,7 +199,7 @@ public class ParkourManager extends Manager {
                     if (type == Material.IRON_BLOCK) {
                         Block plateAbove = loc.getWorld().getBlockAt(loc).getRelative(0, 1, 0);
                         if (plateAbove.getType() == Material.WOOD_PLATE) {
-                            checkpoints.add(new ParkourCheckpoint(checkpoints.size() + 1, loc.clone()));
+                            checkpoints.add(new ParkourCheckpoint(0, loc.clone()));
                             processed.add(loc);
                         }
                     } else if (type == Material.DIAMOND_BLOCK) {
@@ -170,10 +214,16 @@ public class ParkourManager extends Manager {
         }
 
         if (finishLocation == null) {
+            Bukkit.getLogger().warning("[ParkourManager] Parkour at " + startLocation + " has no finish block!");
             return null;
         }
 
         checkpoints.sort(Comparator.comparingDouble(cp -> cp.getLocation().distanceSquared(startLocation)));
+
+        for (int i = 0; i < checkpoints.size(); i++) {
+            ParkourCheckpoint old = checkpoints.get(i);
+            checkpoints.set(i, new ParkourCheckpoint(i + 1, old.getLocation()));
+        }
 
         String parkourId = "parkour_" + UUID.randomUUID().toString().substring(0, 8);
         return new Parkour(parkourId, startLocation, checkpoints, finishLocation);
@@ -182,7 +232,10 @@ public class ParkourManager extends Manager {
     private void createHolograms(Parkour parkour) {
         Location startLoc = parkour.getStartLocation().clone().add(0.5, 2.5, 0.5);
         Hologram startHologram = DHAPI.createHologram(parkour.getId() + "_start", startLoc);
-        DHAPI.setHologramLines(startHologram, Collections.singletonList(ColorUtil.color("&6&lSTART")));
+        DHAPI.setHologramLines(startHologram, Arrays.asList(
+                ColorUtil.color("&6&lSTART"),
+                ColorUtil.color("&7Step on the plate to begin")
+        ));
         parkour.setStartHologram(startHologram);
 
         for (ParkourCheckpoint checkpoint : parkour.getCheckpoints()) {
@@ -191,13 +244,18 @@ public class ParkourManager extends Manager {
                     parkour.getId() + "_checkpoint_" + checkpoint.getNumber(),
                     checkpointLoc
             );
-            DHAPI.setHologramLines(checkpointHologram, Collections.singletonList(ColorUtil.color("&e&lCHECKPOINT")));
+            DHAPI.setHologramLines(checkpointHologram, Collections.singletonList(
+                    ColorUtil.color("&e&lCHECKPOINT")
+            ));
             parkour.addCheckpointHologram(checkpoint.getNumber(), checkpointHologram);
         }
 
         Location finishLoc = parkour.getFinishLocation().clone().add(0.5, 2.5, 0.5);
         Hologram finishHologram = DHAPI.createHologram(parkour.getId() + "_finish", finishLoc);
-        DHAPI.setHologramLines(finishHologram, Collections.singletonList(ColorUtil.color("&a&lEND")));
+        DHAPI.setHologramLines(finishHologram, Arrays.asList(
+                ColorUtil.color("&a&lFINISH"),
+                ColorUtil.color("&7Complete the parkour!")
+        ));
         parkour.setFinishHologram(finishHologram);
     }
 
@@ -209,7 +267,10 @@ public class ParkourManager extends Manager {
         ParkourSession session = new ParkourSession(player, parkour);
         sessionManager.addSession(player, session);
 
-        ColorUtil.sendMessage(player, "&aParkour started!");
+        ColorUtil.sendMessage(player, "&6&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        ColorUtil.sendMessage(player, "&6&lPARKOUR STARTED");
+        ColorUtil.sendMessage(player, "&7Checkpoints: &e" + parkour.getCheckpoints().size());
+        ColorUtil.sendMessage(player, "&6&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
     }
 
     public void handleCheckpoint(Player player, Location location) {
@@ -228,7 +289,7 @@ public class ParkourManager extends Manager {
         }
 
         session.reachCheckpoint(checkpoint.getNumber());
-        ColorUtil.sendMessage(player, "&aCheckpoint &e#" + checkpoint.getNumber() + " &areached!");
+        ColorUtil.sendMessage(player, "&aCheckpoint reached!");
     }
 
     public void handleFinish(Player player, Location location) {
@@ -248,10 +309,12 @@ public class ParkourManager extends Manager {
         int completions = playerCompletions.getOrDefault(player.getUniqueId(), 0) + 1;
         playerCompletions.put(player.getUniqueId(), completions);
 
+        ColorUtil.sendMessage(player, "&a&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
         ColorUtil.sendMessage(player, "&a&lPARKOUR COMPLETED!");
         ColorUtil.sendMessage(player, "&eTime: &f" + formatTime(timeTaken));
         ColorUtil.sendMessage(player, "&eCheckpoints: &f" + checkpointsReached + "/" + totalCheckpoints);
         ColorUtil.sendMessage(player, "&eCompletions: &f" + completions);
+        ColorUtil.sendMessage(player, "&a&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
 
         sessionManager.endSession(player);
     }
@@ -269,7 +332,6 @@ public class ParkourManager extends Manager {
     public void teleportToCheckpoint(Player player) {
         ParkourSession session = sessionManager.getSession(player);
         if (session == null) {
-            ColorUtil.sendMessage(player, "&cYou are not in a parkour!");
             return;
         }
 
@@ -279,7 +341,6 @@ public class ParkourManager extends Manager {
         }
 
         player.teleport(spawnLoc.clone().add(0.5, 1, 0.5));
-        ColorUtil.sendMessage(player, "&aTeleported to checkpoint!");
     }
 
     public void quitParkour(Player player) {

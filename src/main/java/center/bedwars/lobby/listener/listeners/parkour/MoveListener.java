@@ -21,32 +21,50 @@ public class MoveListener implements Listener {
 
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
-        if (event.getFrom().getBlockX() == event.getTo().getBlockX() &&
-                event.getFrom().getBlockY() == event.getTo().getBlockY() &&
-                event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
+        Location from = event.getFrom();
+        Location to = event.getTo();
+
+        if (to == null) {
+            return;
+        }
+
+        if (from.getBlockX() == to.getBlockX() &&
+                from.getBlockY() == to.getBlockY() &&
+                from.getBlockZ() == to.getBlockZ()) {
             return;
         }
 
         Player player = event.getPlayer();
-        Location location = player.getLocation();
-        Block blockBelow = location.subtract(0, 1, 0).getBlock();
 
-        if (blockBelow.getType() != Material.WOOD_PLATE) {
+        Location feetLocation = player.getLocation();
+        Block blockAtFeet = feetLocation.getBlock();
+
+        if (blockAtFeet.getType() == Material.WOOD_PLATE) {
+            Block blockBelow = blockAtFeet.getRelative(0, -1, 0);
+            handleParkourBlock(player, blockBelow);
             return;
         }
 
-        Block blockBelowPlate = blockBelow.getRelative(0, -1, 0);
-        Material belowType = blockBelowPlate.getType();
+        Block blockBelow = feetLocation.subtract(0, 1, 0).getBlock();
+        if (blockBelow.getType() == Material.WOOD_PLATE) {
+            Block blockAbove = blockBelow.getRelative(0, -1, 0);
+            handleParkourBlock(player, blockAbove);
+        }
+    }
 
-        if (belowType == Material.GOLD_BLOCK) {
-            Parkour parkour = parkourManager.getParkourAtLocation(blockBelowPlate.getLocation());
+    private void handleParkourBlock(Player player, Block block) {
+        Material type = block.getType();
+        Location location = block.getLocation();
+
+        if (type == Material.GOLD_BLOCK) {
+            Parkour parkour = parkourManager.getParkourAtLocation(location);
             if (parkour != null) {
                 parkourManager.startParkour(player, parkour);
             }
-        } else if (belowType == Material.IRON_BLOCK) {
-            parkourManager.handleCheckpoint(player, blockBelowPlate.getLocation());
-        } else if (belowType == Material.DIAMOND_BLOCK) {
-            parkourManager.handleFinish(player, blockBelowPlate.getLocation());
+        } else if ( type == Material.IRON_BLOCK) {
+            parkourManager.handleCheckpoint(player, location);
+        } else if ( type == Material.DIAMOND_BLOCK) {
+            parkourManager.handleFinish(player, location);
         }
     }
 }

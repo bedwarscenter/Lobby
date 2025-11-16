@@ -1,6 +1,8 @@
 package center.bedwars.lobby.listener;
 
 import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.listener.listeners.general.WorldDayListener;
+import center.bedwars.lobby.listener.listeners.general.WorldWeatherListener;
 import center.bedwars.lobby.listener.listeners.important.JoinListener;
 import center.bedwars.lobby.listener.listeners.important.QuitListener;
 import center.bedwars.lobby.listener.listeners.parkour.MoveListener;
@@ -17,7 +19,7 @@ public class ListenerManager extends Manager {
     private final List<Listener> listeners = new ArrayList<>();
 
     @Override
-    protected void onLoad() throws Exception {
+    protected void onLoad() {
         registerListener(new JoinListener());
         registerListener(new QuitListener());
         registerListener(new MoveListener());
@@ -25,8 +27,14 @@ public class ListenerManager extends Manager {
     }
 
     @Override
-    protected void onUnload() throws Exception {
+    protected void onUnload() {
         listeners.clear();
+    }
+
+    @Override
+    protected void onFinish() {
+        registerListener(new WorldDayListener());
+        registerListener(new WorldWeatherListener());
     }
 
     private void registerListener(Listener listener) {

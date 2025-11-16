@@ -20,7 +20,6 @@ import net.j4c0b3y.api.command.annotation.registration.Register;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import xyz.refinedev.spigot.features.chunk.IChunkAPI;
 import xyz.refinedev.spigot.features.chunk.snapshot.ICarbonChunkSnapshot;
@@ -30,12 +29,9 @@ import xyz.refinedev.spigot.features.chunk.snapshot.ICarbonChunkSnapshot;
 public class SyncCommand {
 
     private final Lobby lobby = Lobby.getINSTANCE();
-    private final LobbySyncManager syncManager;
     private final IChunkAPI chunkAPI;
 
     public SyncCommand() {
-        this.syncManager = Lobby.getManagerStorage().getManager(LobbySyncManager.class);
-
         DependencyManager depManager = Lobby.getManagerStorage().getManager(DependencyManager.class);
         CarbonDependency carbon = depManager.getCarbon();
 
@@ -46,8 +42,12 @@ public class SyncCommand {
         this.chunkAPI = carbon.getChunkRegistry();
     }
 
+    private LobbySyncManager getSyncManager() {
+        return Lobby.getManagerStorage().getManager(LobbySyncManager.class);
+    }
+
     @Command(name = "")
-    public void main(@Sender CommandSender sender) {
+    public void main(@Sender Player sender) {
         ColorUtil.sendMessage(sender, "&8&m--------------------");
         ColorUtil.sendMessage(sender, "&6&lLobby Sync Commands");
         ColorUtil.sendMessage(sender, "&e/sync config &7- Push config to all lobbies");
@@ -58,7 +58,7 @@ public class SyncCommand {
     }
 
     @Command(name = "config")
-    public void configPush(@Sender CommandSender sender) {
+    public void configPush(@Sender Player sender) {
         ColorUtil.sendMessage(sender, "&aPushing configuration to all lobbies...");
 
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
@@ -68,7 +68,7 @@ public class SyncCommand {
             data.addProperty("configType", "all");
             data.addProperty("reloadTime", reloadTime);
 
-            syncManager.broadcastEvent(SyncEventType.CONFIG_PUSH, data);
+            getSyncManager().broadcastEvent(SyncEventType.CONFIG_PUSH, data);
 
             Bukkit.getScheduler().runTask(lobby, () ->
                     ColorUtil.sendMessage(sender, String.format("&aConfiguration pushed! (Reload time: %dms)", reloadTime))
@@ -90,7 +90,7 @@ public class SyncCommand {
                 byte[] snapshotData = ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
 
                 JsonObject data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
-                syncManager.broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
+                getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
 
                 Bukkit.getScheduler().runTask(lobby, () ->
                         ColorUtil.sendMessage(player, String.format(
@@ -136,7 +136,7 @@ public class SyncCommand {
                         byte[] snapshotData = ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
 
                         JsonObject data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
-                        syncManager.broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
+                        getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
 
                         synced++;
                         totalSize += snapshotData.length;
@@ -161,9 +161,9 @@ public class SyncCommand {
     }
 
     @Command(name = "full")
-    public void fullSync(@Sender CommandSender sender) {
+    public void fullSync(@Sender Player sender) {
         ColorUtil.sendMessage(sender, "&aInitiating full lobby synchronization...");
-        syncManager.performFullSync();
+        getSyncManager().performFullSync();
         ColorUtil.sendMessage(sender, "&aFull synchronization request sent!");
     }
 }

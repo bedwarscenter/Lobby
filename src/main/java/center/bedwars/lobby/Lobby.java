@@ -2,6 +2,7 @@ package center.bedwars.lobby;
 
 import center.bedwars.lobby.command.CommandManager;
 import center.bedwars.lobby.configuration.ConfigurationManager;
+import center.bedwars.lobby.database.DatabaseManager;
 import center.bedwars.lobby.listener.ListenerManager;
 import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.manager.ManagerStorage;
@@ -27,6 +28,7 @@ public final class Lobby extends JavaPlugin {
         managerStorage.registerAndLoad(new ConfigurationManager());
         managerStorage.registerAndLoad(new NMSManager());
         managerStorage.registerAndLoad(new DependencyManager());
+        managerStorage.registerAndLoad(new DatabaseManager());
         managerStorage.registerAndLoad(new ParkourManager());
         managerStorage.registerAndLoad(new CommandManager());
         managerStorage.registerAndLoad(new ListenerManager());

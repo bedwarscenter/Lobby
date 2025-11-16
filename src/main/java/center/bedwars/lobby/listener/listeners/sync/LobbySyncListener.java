@@ -7,6 +7,7 @@ import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
 import com.google.gson.JsonObject;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -25,6 +26,10 @@ public class LobbySyncListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
+
+        Player player = event.getPlayer();
+        if (!player.hasMetadata("BuildMode")) return;
+
         Block block = event.getBlock();
         Material material = block.getType();
         byte data = block.getData();
@@ -40,6 +45,10 @@ public class LobbySyncListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
+
+        Player player = event.getPlayer();
+        if (!player.hasMetadata("BuildMode")) return;
+
         Block block = event.getBlock();
         Material material = block.getType();
 
