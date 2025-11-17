@@ -4,6 +4,7 @@ import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.command.commands.BedWarsLobbyCommand;
 import center.bedwars.lobby.command.commands.ParkourCommand;
 import center.bedwars.lobby.command.commands.SyncCommand;
+import center.bedwars.lobby.command.commands.SpawnCommand;
 import center.bedwars.lobby.manager.Manager;
 import lombok.Getter;
 import net.j4c0b3y.api.command.bukkit.BukkitCommandHandler;
@@ -20,6 +21,7 @@ public class CommandManager extends Manager {
         bukkitCommandHandler.register(new BedWarsLobbyCommand());
         bukkitCommandHandler.register(new ParkourCommand());
         bukkitCommandHandler.register(new SyncCommand());
+        bukkitCommandHandler.register(new SpawnCommand());
     }
 
     @Override

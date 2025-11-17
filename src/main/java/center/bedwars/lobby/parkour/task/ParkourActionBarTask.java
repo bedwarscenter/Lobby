@@ -1,6 +1,6 @@
 package center.bedwars.lobby.parkour.task;
 
-import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.nms.NMSHelper;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.parkour.session.ParkourSession;
@@ -31,7 +31,10 @@ public class ParkourActionBarTask extends BukkitRunnable {
 
             String time = formatTime(elapsed);
             String message = ColorUtil.color(
-                    String.format("&6⏱ &e%s &8| &7Checkpoints: &e%d&7/&e%d", time, checkpoints, total)
+                    LanguageConfiguration.PARKOUR.ACTIONBAR_FORMAT
+                            .replace("%time%", time)
+                            .replace("%current%", String.valueOf(checkpoints))
+                            .replace("%total%", String.valueOf(total))
             );
 
             sendActionBar(player, message);
@@ -39,10 +42,10 @@ public class ParkourActionBarTask extends BukkitRunnable {
     }
 
     private String formatTime(long millis) {
-        long seconds = millis / 1000;
-        long minutes = seconds / 60;
-        seconds = seconds % 60;
-        return String.format("%02d:%02d", minutes, seconds);
+        long minutes = millis / (60 * 1000);
+        long seconds = (millis % (60 * 1000)) / 1000;
+        long milliseconds = millis % 1000;
+        return String.format("%02d:%02d.%03d", minutes, seconds, milliseconds);
     }
 
     private void sendActionBar(Player player, String message) {

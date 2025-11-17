@@ -6,6 +6,7 @@ import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.dependency.dependencies.PhoenixDependency;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.lobby.util.SpawnUtil;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -31,6 +32,9 @@ public class JoinListener implements Listener {
         if (player == null) return;
 
         parkourManager.handlePlayerQuit(player);
+        if (SettingsConfiguration.PLAYER.TELEPORT_ON_JOIN) {
+            SpawnUtil.teleportToSpawn(player);
+        }
 
         String joinMessage = this.getJoinMessage(player);
         if (joinMessage != null) {

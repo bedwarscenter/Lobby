@@ -19,7 +19,6 @@ public class DatabaseManager extends Manager {
         this.redis = new RedisDatabase(lobby.getLogger());
         this.mongo = new MongoDatabaseConnection(lobby.getLogger());
 
-        // Connect to databases
         redis.connect();
         mongo.connect();
 
@@ -41,6 +40,5 @@ public class DatabaseManager extends Manager {
 
     @Override
     protected void onFinish() {
-        // Post-initialization tasks if needed
     }
 }

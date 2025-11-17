@@ -1,6 +1,10 @@
 package center.bedwars.lobby.parkour;
 
 import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.configuration.configurations.ItemsConfiguration;
+import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
+import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
+import center.bedwars.lobby.configuration.configurations.SoundConfiguration;
 import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.manager.Manager;
 import center.bedwars.lobby.parkour.model.Parkour;
@@ -8,16 +12,21 @@ import center.bedwars.lobby.parkour.model.ParkourCheckpoint;
 import center.bedwars.lobby.parkour.session.ParkourSession;
 import center.bedwars.lobby.parkour.session.ParkourSessionManager;
 import center.bedwars.lobby.parkour.task.ParkourActionBarTask;
+import center.bedwars.lobby.player.PlayerStateSnapshot;
 import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.lobby.util.SpawnUtil;
+import center.bedwars.lobby.manager.orphans.HotbarManager;
 import eu.decentsoftware.holograms.api.DHAPI;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
 import xyz.refinedev.spigot.features.chunk.IChunkAPI;
 
@@ -31,8 +40,10 @@ public class ParkourManager extends Manager {
     private final Map<String, Parkour> parkours = new HashMap<>();
     private final ParkourSessionManager sessionManager = new ParkourSessionManager();
     private final Map<UUID, Integer> playerCompletions = new HashMap<>();
+    private final Map<UUID, PlayerStateSnapshot> savedStates = new HashMap<>();
 
     private DependencyManager dependencyManager;
+    private HotbarManager hotbarManager;
     private IChunkAPI chunkAPI;
     private BukkitTask refreshTask;
     private BukkitTask actionBarTask;
@@ -40,6 +51,7 @@ public class ParkourManager extends Manager {
     @Override
     protected void onLoad() {
         this.dependencyManager = Lobby.getManagerStorage().getManager(DependencyManager.class);
+        this.hotbarManager = Lobby.getManagerStorage().getManager(HotbarManager.class);
 
         if (!dependencyManager.getCarbon().isApiAvailable()) {
             throw new IllegalStateException("Carbon dependency is required for ParkourManager");
@@ -51,7 +63,7 @@ public class ParkourManager extends Manager {
 
         this.chunkAPI = dependencyManager.getCarbon().getChunkRegistry();
 
-        this.actionBarTask = new ParkourActionBarTask(this).runTaskTimer(Lobby.getINSTANCE(), 0L, 10L);
+        this.actionBarTask = new ParkourActionBarTask(this).runTaskTimer(Lobby.getINSTANCE(), 0L, 1L);
 
         scanAndInitializeParkours();
     }
@@ -78,6 +90,7 @@ public class ParkourManager extends Manager {
         parkours.clear();
         sessionManager.clearAllSessions();
         playerCompletions.clear();
+        savedStates.clear();
     }
 
     public void scheduleParkourRefresh() {
@@ -233,8 +246,8 @@ public class ParkourManager extends Manager {
         Location startLoc = parkour.getStartLocation().clone().add(0.5, 2.5, 0.5);
         Hologram startHologram = DHAPI.createHologram(parkour.getId() + "_start", startLoc);
         DHAPI.setHologramLines(startHologram, Arrays.asList(
-                ColorUtil.color("&6&lSTART"),
-                ColorUtil.color("&7Step on the plate to begin")
+                ColorUtil.color(LanguageConfiguration.HOLOGRAM.START_TITLE),
+                ColorUtil.color(LanguageConfiguration.HOLOGRAM.START_SUBTITLE)
         ));
         parkour.setStartHologram(startHologram);
 
@@ -244,8 +257,9 @@ public class ParkourManager extends Manager {
                     parkour.getId() + "_checkpoint_" + checkpoint.getNumber(),
                     checkpointLoc
             );
-            DHAPI.setHologramLines(checkpointHologram, Collections.singletonList(
-                    ColorUtil.color("&e&lCHECKPOINT")
+            DHAPI.setHologramLines(checkpointHologram, Arrays.asList(
+                    ColorUtil.color(LanguageConfiguration.HOLOGRAM.CHECKPOINT_TITLE),
+                    ColorUtil.color(LanguageConfiguration.HOLOGRAM.CHECKPOINT_SUBTITLE)
             ));
             parkour.addCheckpointHologram(checkpoint.getNumber(), checkpointHologram);
         }
@@ -253,24 +267,51 @@ public class ParkourManager extends Manager {
         Location finishLoc = parkour.getFinishLocation().clone().add(0.5, 2.5, 0.5);
         Hologram finishHologram = DHAPI.createHologram(parkour.getId() + "_finish", finishLoc);
         DHAPI.setHologramLines(finishHologram, Arrays.asList(
-                ColorUtil.color("&a&lFINISH"),
-                ColorUtil.color("&7Complete the parkour!")
+                ColorUtil.color(LanguageConfiguration.HOLOGRAM.FINISH_TITLE),
+                ColorUtil.color(LanguageConfiguration.HOLOGRAM.FINISH_SUBTITLE)
         ));
         parkour.setFinishHologram(finishHologram);
     }
 
     public void startParkour(Player player, Parkour parkour) {
-        if (sessionManager.hasActiveSession(player)) {
+        ParkourSession existingSession = sessionManager.getSession(player);
+
+        if (existingSession != null) {
+            sessionManager.endSession(player);
+            ParkourSession newSession = new ParkourSession(player, parkour);
+            sessionManager.addSession(player, newSession);
+
+            ColorUtil.sendMessage(player, "&b&l");
+            ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.STARTED_TITLE);
+            ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.CHECKPOINTS_INFO.replace("%checkpoints%", String.valueOf(parkour.getCheckpoints().size())));
+            ColorUtil.sendMessage(player, "&a&l");
+
+            playSound(player, SoundConfiguration.PARKOUR.START_SOUND,
+                    SoundConfiguration.PARKOUR.START_VOLUME,
+                    SoundConfiguration.PARKOUR.START_PITCH);
             return;
         }
+
+        savedStates.put(player.getUniqueId(), PlayerStateSnapshot.capture(player));
+
+        player.getInventory().clear();
+        player.getInventory().setArmorContents(new ItemStack[4]);
+        player.setAllowFlight(false);
+        player.setFlying(false);
+
+        hotbarManager.giveParkourHotbar(player);
 
         ParkourSession session = new ParkourSession(player, parkour);
         sessionManager.addSession(player, session);
 
-        ColorUtil.sendMessage(player, "&6&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
-        ColorUtil.sendMessage(player, "&6&lPARKOUR STARTED");
-        ColorUtil.sendMessage(player, "&7Checkpoints: &e" + parkour.getCheckpoints().size());
-        ColorUtil.sendMessage(player, "&6&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        ColorUtil.sendMessage(player, "&b&l");
+        ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.STARTED_TITLE);
+        ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.CHECKPOINTS_INFO.replace("%checkpoints%", String.valueOf(parkour.getCheckpoints().size())));
+        ColorUtil.sendMessage(player, "&a&l");
+
+        playSound(player, SoundConfiguration.PARKOUR.START_SOUND,
+                SoundConfiguration.PARKOUR.START_VOLUME,
+                SoundConfiguration.PARKOUR.START_PITCH);
     }
 
     public void handleCheckpoint(Player player, Location location) {
@@ -289,7 +330,11 @@ public class ParkourManager extends Manager {
         }
 
         session.reachCheckpoint(checkpoint.getNumber());
-        ColorUtil.sendMessage(player, "&aCheckpoint reached!");
+        ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.CHECKPOINT_REACHED);
+
+        playSound(player, SoundConfiguration.PARKOUR.CHECKPOINT_SOUND,
+                SoundConfiguration.PARKOUR.CHECKPOINT_VOLUME,
+                SoundConfiguration.PARKOUR.CHECKPOINT_PITCH);
     }
 
     public void handleFinish(Player player, Location location) {
@@ -302,31 +347,63 @@ public class ParkourManager extends Manager {
             return;
         }
 
-        long timeTaken = session.getElapsedTime();
         int checkpointsReached = session.getReachedCheckpoints().size();
         int totalCheckpoints = session.getParkour().getCheckpoints().size();
+
+        if (checkpointsReached != totalCheckpoints) {
+            ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.NEED_ALL_CHECKPOINTS);
+            playSound(player, SoundConfiguration.PARKOUR.ERROR_SOUND,
+                    SoundConfiguration.PARKOUR.ERROR_VOLUME,
+                    SoundConfiguration.PARKOUR.ERROR_PITCH);
+            return;
+        }
+
+        long timeTaken = session.getElapsedTime();
 
         int completions = playerCompletions.getOrDefault(player.getUniqueId(), 0) + 1;
         playerCompletions.put(player.getUniqueId(), completions);
 
-        ColorUtil.sendMessage(player, "&a&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
-        ColorUtil.sendMessage(player, "&a&lPARKOUR COMPLETED!");
-        ColorUtil.sendMessage(player, "&eTime: &f" + formatTime(timeTaken));
-        ColorUtil.sendMessage(player, "&eCheckpoints: &f" + checkpointsReached + "/" + totalCheckpoints);
-        ColorUtil.sendMessage(player, "&eCompletions: &f" + completions);
-        ColorUtil.sendMessage(player, "&a&l▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        ColorUtil.sendMessage(player, "&c&l");
+        ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.COMPLETED_TITLE);
+        ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.TIME_MESSAGE.replace("%time%", formatTime(timeTaken)));
+        ColorUtil.sendMessage(player, "&3&l");
 
+        playSound(player, SoundConfiguration.PARKOUR.COMPLETE_SOUND,
+                SoundConfiguration.PARKOUR.COMPLETE_VOLUME,
+                SoundConfiguration.PARKOUR.COMPLETE_PITCH);
+
+        restorePlayer(player, SettingsConfiguration.PARKOUR_BEHAVIOR.TELEPORT_TO_SPAWN_ON_FINISH);
         sessionManager.endSession(player);
     }
 
     public void resetPlayer(Player player) {
         if (!sessionManager.hasActiveSession(player)) {
-            ColorUtil.sendMessage(player, "&cYou are not in a parkour!");
+            ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.NOT_IN_PARKOUR);
+            playSound(player, SoundConfiguration.PARKOUR.ERROR_SOUND,
+                    SoundConfiguration.PARKOUR.ERROR_VOLUME,
+                    SoundConfiguration.PARKOUR.ERROR_PITCH);
             return;
         }
 
+        ParkourSession oldSession = sessionManager.getSession(player);
+        Parkour parkour = oldSession.getParkour();
+
         sessionManager.endSession(player);
-        ColorUtil.sendMessage(player, "&cParkour reset!");
+        ParkourSession newSession = new ParkourSession(player, parkour);
+        sessionManager.addSession(player, newSession);
+
+        float yaw = player.getLocation().getYaw();
+        float pitch = player.getLocation().getPitch();
+
+        Location startLoc = parkour.getStartLocation().clone().add(0.5, 1, 0.5);
+        startLoc.setYaw(yaw);
+        startLoc.setPitch(pitch);
+        player.teleport(startLoc);
+
+        ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.RESET_MESSAGE);
+        playSound(player, SoundConfiguration.PARKOUR.RESET_SOUND,
+                SoundConfiguration.PARKOUR.RESET_VOLUME,
+                SoundConfiguration.PARKOUR.RESET_PITCH);
     }
 
     public void teleportToCheckpoint(Player player) {
@@ -340,22 +417,90 @@ public class ParkourManager extends Manager {
             spawnLoc = session.getParkour().getStartLocation();
         }
 
-        player.teleport(spawnLoc.clone().add(0.5, 1, 0.5));
+        float yaw = player.getLocation().getYaw();
+        float pitch = player.getLocation().getPitch();
+
+        Location teleportLoc = spawnLoc.clone().add(0.5, 1, 0.5);
+        teleportLoc.setYaw(yaw);
+        teleportLoc.setPitch(pitch);
+
+        player.teleport(teleportLoc);
+        playSound(player, SoundConfiguration.PARKOUR.CHECKPOINT_TP_SOUND,
+                SoundConfiguration.PARKOUR.CHECKPOINT_TP_VOLUME,
+                SoundConfiguration.PARKOUR.CHECKPOINT_TP_PITCH);
     }
 
     public void quitParkour(Player player) {
         if (!sessionManager.hasActiveSession(player)) {
-            ColorUtil.sendMessage(player, "&cYou are not in a parkour!");
+            ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.NOT_IN_PARKOUR);
+            playSound(player, SoundConfiguration.PARKOUR.ERROR_SOUND,
+                    SoundConfiguration.PARKOUR.ERROR_VOLUME,
+                    SoundConfiguration.PARKOUR.ERROR_PITCH);
             return;
         }
 
         sessionManager.endSession(player);
-        ColorUtil.sendMessage(player, "&cParkour quit!");
+
+        ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.QUIT_MESSAGE);
+        playSound(player, SoundConfiguration.PARKOUR.QUIT_SOUND,
+                SoundConfiguration.PARKOUR.QUIT_VOLUME,
+                SoundConfiguration.PARKOUR.QUIT_PITCH);
+
+        restorePlayer(player, SettingsConfiguration.PARKOUR_BEHAVIOR.TELEPORT_TO_SPAWN_ON_QUIT);
+    }
+
+    public boolean leaveParkour(Player player, boolean teleportToSpawn) {
+        if (!sessionManager.hasActiveSession(player)) {
+            return false;
+        }
+        sessionManager.endSession(player);
+        restorePlayer(player, teleportToSpawn);
+        return true;
+    }
+
+    private void restorePlayer(Player player, boolean teleportToSpawn) {
+        PlayerStateSnapshot snapshot = savedStates.remove(player.getUniqueId());
+        boolean restored = false;
+
+        if (snapshot != null) {
+            boolean restoreLocation = SettingsConfiguration.PARKOUR_BEHAVIOR.RESTORE_SAVED_LOCATION && !teleportToSpawn;
+            snapshot.restore(player, restoreLocation);
+            restored = true;
+        } else {
+            hotbarManager.giveLobbyHotbar(player);
+        }
+
+        player.updateInventory();
+
+        if (teleportToSpawn || !restored) {
+            SpawnUtil.teleportToSpawn(player);
+        }
     }
 
     public void handlePlayerQuit(Player player) {
         if (sessionManager.hasActiveSession(player)) {
             sessionManager.endSession(player);
+        }
+        savedStates.remove(player.getUniqueId());
+    }
+
+    public void handleItemClick(Player player, ItemStack item) {
+        if (item == null || !sessionManager.hasActiveSession(player)) {
+            return;
+        }
+
+        if (!item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) {
+            return;
+        }
+
+        String displayName = item.getItemMeta().getDisplayName();
+
+        if (displayName.equals(ColorUtil.color(ItemsConfiguration.PARKOUR_HOTBAR.RESET.DISPLAY_NAME))) {
+            resetPlayer(player);
+        } else if (displayName.equals(ColorUtil.color(ItemsConfiguration.PARKOUR_HOTBAR.CHECKPOINT.DISPLAY_NAME))) {
+            teleportToCheckpoint(player);
+        } else if (displayName.equals(ColorUtil.color(ItemsConfiguration.PARKOUR_HOTBAR.EXIT.DISPLAY_NAME))) {
+            quitParkour(player);
         }
     }
 
@@ -375,5 +520,14 @@ public class ParkourManager extends Manager {
             }
         }
         return null;
+    }
+
+    private void playSound(Player player, String soundName, float volume, float pitch) {
+        try {
+            Sound sound = Sound.valueOf(soundName);
+            player.playSound(player.getLocation(), sound, volume, pitch);
+        } catch (IllegalArgumentException e) {
+            Bukkit.getLogger().warning("[ParkourManager] Invalid sound: " + soundName);
+        }
     }
 }

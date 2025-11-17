@@ -1,6 +1,7 @@
 package center.bedwars.lobby.listener.listeners.parkour;
 
 import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.parkour.session.ParkourSession;
 import center.bedwars.lobby.util.ColorUtil;
@@ -9,8 +10,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 
 public class ParkourListener implements Listener {
@@ -21,24 +23,16 @@ public class ParkourListener implements Listener {
         this.parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        parkourManager.handlePlayerQuit(event.getPlayer());
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onFlightToggle(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
-
-        if (!event.isFlying() || player.getGameMode() == GameMode.CREATIVE) {
-            return;
-        }
 
         ParkourSession session = parkourManager.getSessionManager().getSession(player);
         if (session != null) {
             event.setCancelled(true);
-            parkourManager.quitParkour(player);
-            ColorUtil.sendMessage(player, "&cYou cannot fly during parkour!");
+            player.setAllowFlight(false);
+            player.setFlying(false);
+            ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.FLIGHT_DISABLED);
         }
     }
 
@@ -50,8 +44,23 @@ public class ParkourListener implements Listener {
             ParkourSession session = parkourManager.getSessionManager().getSession(player);
             if (session != null) {
                 parkourManager.quitParkour(player);
-                ColorUtil.sendMessage(player, "&cParkour ended due to gamemode change!");
+                ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.GAMEMODE_CHANGE);
             }
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        if (!parkourManager.getSessionManager().hasActiveSession(player)) {
+            return;
+        }
+
+        event.setCancelled(true);
+        parkourManager.handleItemClick(player, event.getItem());
     }
 }

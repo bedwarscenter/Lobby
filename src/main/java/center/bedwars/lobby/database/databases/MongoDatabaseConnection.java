@@ -41,7 +41,6 @@ public class MongoDatabaseConnection {
             this.mongoClient = MongoClients.create(settingsBuilder.build());
             this.database = mongoClient.getDatabase(dbName);
 
-            // Test connection
             database.runCommand(new Document("ping", 1));
             logger.info("MongoDB connection established successfully!");
 

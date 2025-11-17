@@ -1,8 +1,12 @@
 package center.bedwars.lobby.listener;
 
 import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.listener.listeners.general.PlayerEnvironmentListener;
+import center.bedwars.lobby.listener.listeners.general.PlayerRestrictionListener;
+import center.bedwars.lobby.listener.listeners.general.PlayerSafetyListener;
 import center.bedwars.lobby.listener.listeners.general.WorldDayListener;
 import center.bedwars.lobby.listener.listeners.general.WorldWeatherListener;
+import center.bedwars.lobby.listener.listeners.hotbar.HotbarListener;
 import center.bedwars.lobby.listener.listeners.important.JoinListener;
 import center.bedwars.lobby.listener.listeners.important.QuitListener;
 import center.bedwars.lobby.listener.listeners.parkour.MoveListener;
@@ -21,13 +25,19 @@ public class ListenerManager extends Manager {
 
     @Override
     protected void onLoad() {
-        registerListener(new JoinListener());
-        registerListener(new QuitListener());
-        registerListener(new MoveListener());
-        registerListener(new WorldWeatherListener());
-        registerListener(new WorldDayListener());
-        registerListener(new ParkourListener());
-        registerListener(new LobbySyncListener());
+        registerListeners(
+                new JoinListener(),
+                new QuitListener(),
+                new MoveListener(),
+                new WorldWeatherListener(),
+                new WorldDayListener(),
+                new ParkourListener(),
+                new HotbarListener(),
+                new LobbySyncListener(),
+                new PlayerEnvironmentListener(),
+                new PlayerSafetyListener(),
+                new PlayerRestrictionListener()
+        );
     }
 
     @Override
@@ -35,14 +45,10 @@ public class ListenerManager extends Manager {
         listeners.clear();
     }
 
-    @Override
-    protected void onFinish() {
-        registerListener(new WorldDayListener());
-        registerListener(new WorldWeatherListener());
-    }
-
-    private void registerListener(Listener listener) {
-        Bukkit.getPluginManager().registerEvents(listener, Lobby.getINSTANCE());
-        listeners.add(listener);
+    private void registerListeners(Listener... listeners) {
+        for (Listener listener : listeners) {
+            Bukkit.getPluginManager().registerEvents(listener, Lobby.getINSTANCE());
+            this.listeners.add(listener);
+        }
     }
 }

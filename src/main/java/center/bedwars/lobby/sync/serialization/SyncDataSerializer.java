@@ -22,6 +22,7 @@ public class SyncDataSerializer {
             .create();
 
     private static final JsonParser JSON_PARSER = new JsonParser();
+    private static final String GZIP_PREFIX = "GZIP:";
 
     public static String serialize(SyncEvent event) {
         JsonObject json = new JsonObject();
@@ -34,7 +35,7 @@ public class SyncDataSerializer {
 
         if (jsonString.length() > 1000) {
             try {
-                return compressData(jsonString);
+                return GZIP_PREFIX + compressData(jsonString);
             } catch (IOException e) {
                 return jsonString;
             }
@@ -44,25 +45,26 @@ public class SyncDataSerializer {
     }
 
     public static SyncEvent deserialize(String json) {
-        if (json.startsWith("{")) {
-            JsonObject obj = JSON_PARSER.parse(json).getAsJsonObject();
+        try {
+            String dataToProcess;
+
+            if (json.startsWith(GZIP_PREFIX)) {
+                dataToProcess = decompressData(json.substring(GZIP_PREFIX.length()));
+            } else if (json.startsWith("{")) {
+                dataToProcess = json;
+            } else {
+                dataToProcess = decompressData(json);
+            }
+
+            JsonObject obj = JSON_PARSER.parse(dataToProcess).getAsJsonObject();
             String sourceLobby = obj.get("sourceLobby").getAsString();
             SyncEventType type = SyncEventType.fromIdentifier(obj.get("type").getAsString());
             long timestamp = obj.get("timestamp").getAsLong();
             JsonObject data = obj.getAsJsonObject("data");
             return new SyncEvent(sourceLobby, type, timestamp, data);
-        } else {
-            try {
-                String decompressed = decompressData(json);
-                JsonObject obj = JSON_PARSER.parse(decompressed).getAsJsonObject();
-                String sourceLobby = obj.get("sourceLobby").getAsString();
-                SyncEventType type = SyncEventType.fromIdentifier(obj.get("type").getAsString());
-                long timestamp = obj.get("timestamp").getAsLong();
-                JsonObject data = obj.getAsJsonObject("data");
-                return new SyncEvent(sourceLobby, type, timestamp, data);
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to decompress sync event", e);
-            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to deserialize sync event: " + e.getMessage(), e);
         }
     }
 

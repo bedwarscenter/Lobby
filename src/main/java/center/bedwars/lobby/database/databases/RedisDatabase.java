@@ -49,7 +49,6 @@ public class RedisDatabase {
                 this.jedisPool = new JedisPool(config, host, port, 2000, password, database, ssl);
             }
 
-            // Test connection
             try (Jedis jedis = jedisPool.getResource()) {
                 jedis.ping();
                 logger.info("Redis connection established successfully!");

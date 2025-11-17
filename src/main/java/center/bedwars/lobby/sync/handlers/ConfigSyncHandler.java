@@ -18,13 +18,13 @@ public class ConfigSyncHandler implements ISyncHandler {
         String configType = data.get("configType").getAsString();
 
         Lobby.getINSTANCE().getLogger().info(
-                "Received config push for: " + configType
+                "Received config sync for: " + configType
         );
 
-        long reloadTime = ConfigurationManager.reloadConfigurations();
+        long reloadTime = ConfigurationManager.reloadConfigurationsPreservingLobbyId();
 
         Lobby.getINSTANCE().getLogger().info(
-                String.format("Configurations reloaded in %dms", reloadTime)
+                String.format("Configurations reloaded in %dms (LOBBY_ID preserved)", reloadTime)
         );
     }
 }

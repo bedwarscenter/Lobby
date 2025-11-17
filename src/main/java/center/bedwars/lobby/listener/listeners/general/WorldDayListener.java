@@ -25,7 +25,7 @@ public class WorldDayListener implements Listener {
             public void run() {
                 world.setTime(1000);
             }
-        }.runTaskTimerAsynchronously(lobby, 0L, 20L);
+        }.runTaskTimer(lobby, 0L, 20L);
     }
 
 }

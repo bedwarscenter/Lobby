@@ -1,6 +1,7 @@
 package center.bedwars.lobby.command.commands;
 
 import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.util.ColorUtil;
 import net.j4c0b3y.api.command.annotation.command.Command;
@@ -9,7 +10,6 @@ import net.j4c0b3y.api.command.annotation.registration.Register;
 import org.bukkit.entity.Player;
 
 @Register(name = "parkour")
-@SuppressWarnings("unused")
 public class ParkourCommand {
 
     private final ParkourManager parkourManager;
@@ -20,10 +20,10 @@ public class ParkourCommand {
 
     @Command(name = "")
     public void main(@Sender Player player) {
-        ColorUtil.sendMessage(player, "&6&lPARKOUR COMMANDS");
-        ColorUtil.sendMessage(player, "&e/parkour checkpoint &7- Teleport to last checkpoint");
-        ColorUtil.sendMessage(player, "&e/parkour reset &7- Reset and quit the parkour");
-        ColorUtil.sendMessage(player, "&e/parkour quit &7- Quit the parkour");
+        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.PARKOUR_COMMAND.TITLE);
+        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.PARKOUR_COMMAND.CHECKPOINT_HELP);
+        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.PARKOUR_COMMAND.RESET_HELP);
+        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.PARKOUR_COMMAND.QUIT_HELP);
     }
 
     @Command(name = "checkpoint")

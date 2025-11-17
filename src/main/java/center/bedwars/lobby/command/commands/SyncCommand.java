@@ -2,11 +2,11 @@ package center.bedwars.lobby.command.commands;
 
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.ConfigurationManager;
+import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.dependency.dependencies.CarbonDependency;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.handlers.ChunkSnapshotSyncHandler;
 import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
 import center.bedwars.lobby.util.ColorUtil;
 import com.google.gson.JsonObject;
@@ -20,9 +20,13 @@ import net.j4c0b3y.api.command.annotation.registration.Register;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import xyz.refinedev.spigot.features.chunk.IChunkAPI;
-import xyz.refinedev.spigot.features.chunk.snapshot.ICarbonChunkSnapshot;
+
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.util.zip.GZIPOutputStream;
 
 @Register(name = "sync")
 @Requires("bedwarslobby.command.sync")
@@ -49,17 +53,17 @@ public class SyncCommand {
     @Command(name = "")
     public void main(@Sender Player sender) {
         ColorUtil.sendMessage(sender, "&8&m--------------------");
-        ColorUtil.sendMessage(sender, "&6&lLobby Sync Commands");
-        ColorUtil.sendMessage(sender, "&e/sync config &7- Push config to all lobbies");
-        ColorUtil.sendMessage(sender, "&e/sync chunk &7- Sync current chunk");
-        ColorUtil.sendMessage(sender, "&e/sync area <radius> &7- Sync chunk area");
-        ColorUtil.sendMessage(sender, "&e/sync full &7- Full lobby synchronization");
+        ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.TITLE);
+        ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_HELP);
+        ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_HELP);
+        ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.AREA_HELP);
+        ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_HELP);
         ColorUtil.sendMessage(sender, "&8&m--------------------");
     }
 
     @Command(name = "config")
     public void configPush(@Sender Player sender) {
-        ColorUtil.sendMessage(sender, "&aPushing configuration to all lobbies...");
+        ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_PUSHING);
 
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             long reloadTime = ConfigurationManager.reloadConfigurations();
@@ -71,14 +75,15 @@ public class SyncCommand {
             getSyncManager().broadcastEvent(SyncEventType.CONFIG_PUSH, data);
 
             Bukkit.getScheduler().runTask(lobby, () ->
-                    ColorUtil.sendMessage(sender, String.format("&aConfiguration pushed! (Reload time: %dms)", reloadTime))
+                    ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_PUSHED
+                            .replace("%time%", String.valueOf(reloadTime)))
             );
         });
     }
 
     @Command(name = "chunk")
     public void chunkSync(@Sender Player player) {
-        ColorUtil.sendMessage(player, "&aSynchronizing current chunk...");
+        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_SYNCING);
 
         Chunk chunk = player.getLocation().getChunk();
         int chunkX = chunk.getX();
@@ -86,21 +91,21 @@ public class SyncCommand {
 
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             try {
-                ICarbonChunkSnapshot<?> snapshot = chunkAPI.takeSnapshot(chunk);
-                byte[] snapshotData = ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
+                byte[] snapshotData = serializeChunk(chunk);
 
                 JsonObject data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
                 getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
 
                 Bukkit.getScheduler().runTask(lobby, () ->
-                        ColorUtil.sendMessage(player, String.format(
-                                "&aChunk [%d, %d] synchronized! (Size: %.2f KB)",
-                                chunkX, chunkZ, snapshotData.length / 1024.0
-                        ))
+                        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_SYNCED
+                                .replace("%x%", String.valueOf(chunkX))
+                                .replace("%z%", String.valueOf(chunkZ))
+                                .replace("%size%", String.format("%.2f", snapshotData.length / 1024.0)))
                 );
             } catch (Exception e) {
                 Bukkit.getScheduler().runTask(lobby, () ->
-                        ColorUtil.sendMessage(player, "&cFailed to synchronize chunk: " + e.getMessage())
+                        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_FAILED
+                                .replace("%error%", e.getMessage()))
                 );
                 e.printStackTrace();
             }
@@ -110,11 +115,12 @@ public class SyncCommand {
     @Command(name = "area")
     public void areaSync(@Sender Player player, @Named("radius") @Default("5") @Range(min = 1, max = 20) int radius) {
         if (radius < 1 || radius > 20) {
-            ColorUtil.sendMessage(player, "&cRadius must be between 1 and 20!");
+            ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.RADIUS_ERROR);
             return;
         }
 
-        ColorUtil.sendMessage(player, String.format("&aSynchronizing area with radius %d chunks...", radius));
+        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.AREA_SYNCING
+                .replace("%radius%", String.valueOf(radius)));
 
         Chunk centerChunk = player.getLocation().getChunk();
         int centerX = centerChunk.getX();
@@ -132,8 +138,7 @@ public class SyncCommand {
 
                     try {
                         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
-                        ICarbonChunkSnapshot<?> snapshot = chunkAPI.takeSnapshot(chunk);
-                        byte[] snapshotData = ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
+                        byte[] snapshotData = serializeChunk(chunk);
 
                         JsonObject data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
                         getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
@@ -152,18 +157,36 @@ public class SyncCommand {
             final long finalSize = totalSize;
 
             Bukkit.getScheduler().runTask(lobby, () ->
-                    ColorUtil.sendMessage(player, String.format(
-                            "&aArea synchronized! %d chunks (Total: %.2f KB)",
-                            finalSynced, finalSize / 1024.0
-                    ))
+                    ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.AREA_SYNCED
+                            .replace("%chunks%", String.valueOf(finalSynced))
+                            .replace("%size%", String.format("%.2f", finalSize / 1024.0)))
             );
         });
     }
 
     @Command(name = "full")
     public void fullSync(@Sender Player sender) {
-        ColorUtil.sendMessage(sender, "&aInitiating full lobby synchronization...");
+        ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SYNCING);
         getSyncManager().performFullSync();
-        ColorUtil.sendMessage(sender, "&aFull synchronization request sent!");
+        ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SENT);
+    }
+
+    private byte[] serializeChunk(Chunk chunk) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        GZIPOutputStream gzip = new GZIPOutputStream(baos);
+        DataOutputStream dos = new DataOutputStream(gzip);
+
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                for (int y = 0; y < chunk.getWorld().getMaxHeight(); y++) {
+                    Block block = chunk.getBlock(x, y, z);
+                    dos.writeInt(block.getTypeId());
+                    dos.writeByte(block.getData());
+                }
+            }
+        }
+
+        dos.close();
+        return baos.toByteArray();
     }
 }
