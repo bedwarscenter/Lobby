@@ -17,7 +17,9 @@ public enum SyncEventType {
     HOLOGRAM_UPDATE("hologram_update"),
     CHUNK_SNAPSHOT("chunk_snapshot"),
     CONFIG_PUSH("config_push"),
-    FULL_SYNC("full_sync");
+    FULL_SYNC("full_sync"),
+    WORLD_SYNC("world_sync"),
+    PARKOUR_SYNC("parkour_sync");
 
     private final String identifier;
 

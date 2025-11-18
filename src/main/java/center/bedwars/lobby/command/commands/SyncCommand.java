@@ -5,8 +5,10 @@ import center.bedwars.lobby.configuration.ConfigurationManager;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.dependency.dependencies.CarbonDependency;
+import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
+import center.bedwars.lobby.sync.handlers.ChunkSnapshotSyncHandler;
 import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
 import center.bedwars.lobby.util.ColorUtil;
 import com.google.gson.JsonObject;
@@ -20,9 +22,11 @@ import net.j4c0b3y.api.command.annotation.registration.Register;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
+import org.bukkit.WorldBorder;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import xyz.refinedev.spigot.features.chunk.IChunkAPI;
+import xyz.refinedev.spigot.features.chunk.snapshot.ICarbonChunkSnapshot;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -57,6 +61,8 @@ public class SyncCommand {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_HELP);
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_HELP);
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.AREA_HELP);
+        ColorUtil.sendMessage(sender, "&e/sync world &7- Sync world settings");
+        ColorUtil.sendMessage(sender, "&e/sync parkour &7- Sync parkour courses");
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_HELP);
         ColorUtil.sendMessage(sender, "&8&m--------------------");
     }
@@ -164,6 +170,75 @@ public class SyncCommand {
         });
     }
 
+    @Command(name = "world")
+    public void worldSync(@Sender Player player) {
+        ColorUtil.sendMessage(player, "&eStarting world synchronization...");
+
+        World world = player.getWorld();
+        WorldBorder border = world.getWorldBorder();
+
+        Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
+            try {
+                JsonObject data = new JsonObject();
+                data.addProperty("worldName", world.getName());
+
+                JsonObject borderData = new JsonObject();
+                JsonObject center = new JsonObject();
+                center.addProperty("x", border.getCenter().getX());
+                center.addProperty("z", border.getCenter().getZ());
+                borderData.add("center", center);
+                borderData.addProperty("size", border.getSize());
+                borderData.addProperty("damageAmount", border.getDamageAmount());
+                borderData.addProperty("damageBuffer", border.getDamageBuffer());
+                borderData.addProperty("warningDistance", border.getWarningDistance());
+                borderData.addProperty("warningTime", border.getWarningTime());
+                data.add("worldBorder", borderData);
+
+                JsonObject gameRules = new JsonObject();
+                for (String rule : world.getGameRules()) {
+                    gameRules.addProperty(rule, world.getGameRuleValue(rule));
+                }
+                data.add("gameRules", gameRules);
+
+                data.addProperty("difficulty", world.getDifficulty().name());
+                data.addProperty("pvp", world.getPVP());
+                data.addProperty("time", world.getTime());
+                data.addProperty("storm", world.hasStorm());
+                data.addProperty("thundering", world.isThundering());
+                data.addProperty("weather", world.getWeatherDuration());
+
+                getSyncManager().broadcastEvent(SyncEventType.WORLD_SYNC, data);
+
+                Bukkit.getScheduler().runTask(lobby, () ->
+                        ColorUtil.sendMessage(player, "&aWorld settings synchronized successfully!")
+                );
+            } catch (Exception e) {
+                Bukkit.getScheduler().runTask(lobby, () ->
+                        ColorUtil.sendMessage(player, "&cFailed to sync world: " + e.getMessage())
+                );
+                e.printStackTrace();
+            }
+        });
+    }
+
+    @Command(name = "parkour")
+    public void parkourSync(@Sender Player player) {
+        ColorUtil.sendMessage(player, "&eStarting parkour synchronization...");
+
+        ParkourManager parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
+
+        Bukkit.getScheduler().runTask(lobby, () -> {
+            parkourManager.scheduleParkourRefresh();
+
+            JsonObject data = new JsonObject();
+            data.addProperty("action", "refresh");
+
+            getSyncManager().broadcastEvent(SyncEventType.PARKOUR_SYNC, data);
+
+            ColorUtil.sendMessage(player, "&aParkour courses synchronized successfully!");
+        });
+    }
+
     @Command(name = "full")
     public void fullSync(@Sender Player sender) {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SYNCING);
@@ -172,21 +247,7 @@ public class SyncCommand {
     }
 
     private byte[] serializeChunk(Chunk chunk) throws Exception {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        GZIPOutputStream gzip = new GZIPOutputStream(baos);
-        DataOutputStream dos = new DataOutputStream(gzip);
-
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 16; z++) {
-                for (int y = 0; y < chunk.getWorld().getMaxHeight(); y++) {
-                    Block block = chunk.getBlock(x, y, z);
-                    dos.writeInt(block.getTypeId());
-                    dos.writeByte(block.getData());
-                }
-            }
-        }
-
-        dos.close();
-        return baos.toByteArray();
+        ICarbonChunkSnapshot<?> snapshot = chunkAPI.takeSnapshot(chunk);
+        return ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
     }
 }

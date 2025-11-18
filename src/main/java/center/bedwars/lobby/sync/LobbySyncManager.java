@@ -12,7 +12,6 @@ import com.google.gson.JsonObject;
 import com.mongodb.client.MongoCollection;
 import lombok.Getter;
 import org.bson.Document;
-import org.bukkit.Bukkit;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,7 +41,7 @@ public class LobbySyncManager extends Manager {
     private final ScheduledExecutorService batchExecutor = Executors.newSingleThreadScheduledExecutor();
     private volatile boolean processing = true;
     private long lastEventTime = 0;
-    private static final long EVENT_COOLDOWN_MS = 50;
+    private static final long EVENT_COOLDOWN_MS = 10;
     private static final int MAX_QUEUE_SIZE = 1000;
     private static final int BATCH_SIZE = 20;
 
@@ -62,6 +61,8 @@ public class LobbySyncManager extends Manager {
         registerHandlers();
         setupRedisSubscription();
         setupBatchProcessing();
+
+        logger.info("LobbySyncManager initialized for lobby: " + lobbyId);
     }
 
     @Override
@@ -83,6 +84,11 @@ public class LobbySyncManager extends Manager {
         handlers.put(SyncEventType.HOLOGRAM_UPDATE, new HologramSyncHandler());
         handlers.put(SyncEventType.CHUNK_SNAPSHOT, new ChunkSnapshotSyncHandler());
         handlers.put(SyncEventType.CONFIG_PUSH, new ConfigSyncHandler());
+        handlers.put(SyncEventType.WORLD_SYNC, new WorldSyncHandler());
+        handlers.put(SyncEventType.PARKOUR_SYNC, new ParkourSyncHandler());
+        handlers.put(SyncEventType.FULL_SYNC, new FullSyncHandler());
+
+        logger.info("Registered " + handlers.size() + " sync handlers");
     }
 
     private void setupRedisSubscription() {
@@ -90,6 +96,7 @@ public class LobbySyncManager extends Manager {
             if (!processing) return;
 
             if (eventQueue.size() >= MAX_QUEUE_SIZE) {
+                logger.warning("Event queue full, dropping oldest event");
                 eventQueue.poll();
             }
 
@@ -97,15 +104,20 @@ public class LobbySyncManager extends Manager {
                 SyncEvent event = SyncDataSerializer.deserialize(message);
 
                 if (event.isFromSameLobby(lobbyId)) {
+                    logger.info("Ignoring event from same lobby: " + lobbyId);
                     return;
                 }
 
+                logger.info("Queued sync event: " + event.getType() + " from lobby: " + event.getSourceLobby());
                 eventQueue.offer(event);
 
             } catch (Exception e) {
                 logger.severe("Failed to process sync event: " + e.getMessage());
+                e.printStackTrace();
             }
         });
+
+        logger.info("Redis subscription setup complete for channel: " + REDIS_SYNC_CHANNEL);
     }
 
     private void setupBatchProcessing() {
@@ -127,18 +139,23 @@ public class LobbySyncManager extends Manager {
                     }
                 }
             }
-        }, 0, 100, TimeUnit.MILLISECONDS);
+
+            if (processed > 0) {
+                logger.info("Processed " + processed + " sync events");
+            }
+        }, 0, 50, TimeUnit.MILLISECONDS);
     }
 
     public void broadcastEvent(SyncEventType type, JsonObject data) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastEventTime < EVENT_COOLDOWN_MS) {
+            logger.warning("Event cooldown active, skipping: " + type);
             return;
         }
         lastEventTime = currentTime;
 
-        if (data.toString().length() > 10000) {
-            logger.warning("Sync event data too large: " + type);
+        if (data.toString().length() > 50000) {
+            logger.warning("Sync event data too large: " + type + " (" + data.toString().length() + " bytes)");
             return;
         }
 
@@ -147,13 +164,21 @@ public class LobbySyncManager extends Manager {
                 SyncEvent event = new SyncEvent(lobbyId, type, data);
                 String serialized = SyncDataSerializer.serialize(event);
 
+                logger.info("Broadcasting event: " + type + " from lobby: " + lobbyId + " (size: " + serialized.length() + ")");
                 redis.publish(REDIS_SYNC_CHANNEL, serialized);
 
-                Document doc = Document.parse(serialized);
+                Document doc = new Document();
+                doc.put("sourceLobby", event.getSourceLobby());
+                doc.put("type", event.getType().getIdentifier());
+                doc.put("timestamp", event.getTimestamp());
+                doc.put("data", Document.parse(event.getData().toString()));
+
                 syncCollection.insertOne(doc);
+                logger.info("Event saved to MongoDB: " + type);
 
             } catch (Exception e) {
                 logger.severe("Failed to broadcast sync event: " + e.getMessage());
+                e.printStackTrace();
             }
         });
     }
@@ -162,20 +187,23 @@ public class LobbySyncManager extends Manager {
         ISyncHandler handler = handlers.get(event.getType());
 
         if (handler == null) {
+            logger.warning("No handler found for event type: " + event.getType());
             return;
         }
 
         try {
+            logger.info("Handling sync event: " + event.getType() + " from lobby: " + event.getSourceLobby());
             handler.handle(event);
         } catch (Exception e) {
-            logger.severe("Error handling sync event: " + e.getMessage());
+            logger.severe("Error handling sync event " + event.getType() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     public void performFullSync() {
         CompletableFuture.runAsync(() -> {
             try {
-                logger.info("Starting full lobby synchronization...");
+                logger.info("Starting full lobby synchronization from lobby: " + lobbyId);
 
                 JsonObject data = new JsonObject();
                 data.addProperty("requestingLobby", lobbyId);
@@ -184,6 +212,7 @@ public class LobbySyncManager extends Manager {
 
             } catch (Exception e) {
                 logger.severe("Failed to perform full sync: " + e.getMessage());
+                e.printStackTrace();
             }
         });
     }

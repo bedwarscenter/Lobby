@@ -60,7 +60,15 @@ public class SpawnUtil {
             target.setPitch(player.getLocation().getPitch());
         }
 
+        player.setFallDistance(0F);
+        player.setVelocity(player.getVelocity().multiply(0));
         player.teleport(target);
+
+        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
+            player.setFallDistance(0F);
+            player.setVelocity(player.getVelocity().multiply(0));
+        }, 1L);
+
         return true;
     }
 
@@ -73,4 +81,3 @@ public class SpawnUtil {
         return new Location(primaryWorld, spawn.getX(), spawn.getY(), spawn.getZ(), spawn.getYaw(), spawn.getPitch());
     }
 }
-

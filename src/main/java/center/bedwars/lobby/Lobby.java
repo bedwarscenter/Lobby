@@ -36,8 +36,8 @@ public final class Lobby extends JavaPlugin {
         managerStorage.registerAndLoad(new PlayerVisibilityManager());
         managerStorage.registerAndLoad(new HotbarManager());
         managerStorage.registerAndLoad(new ParkourManager());
-        managerStorage.registerAndLoad(new ListenerManager());
         managerStorage.registerAndLoad(new LobbySyncManager());
+        managerStorage.registerAndLoad(new ListenerManager());
 
         managerStorage.setAllWaiting();
         managerStorage.finishAll();

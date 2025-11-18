@@ -398,7 +398,8 @@ public class ParkourManager extends Manager {
         Location startLoc = parkour.getStartLocation().clone().add(0.5, 1, 0.5);
         startLoc.setYaw(yaw);
         startLoc.setPitch(pitch);
-        player.teleport(startLoc);
+
+        safeTeleport(player, startLoc);
 
         ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.RESET_MESSAGE);
         playSound(player, SoundConfiguration.PARKOUR.RESET_SOUND,
@@ -424,7 +425,8 @@ public class ParkourManager extends Manager {
         teleportLoc.setYaw(yaw);
         teleportLoc.setPitch(pitch);
 
-        player.teleport(teleportLoc);
+        safeTeleport(player, teleportLoc);
+
         playSound(player, SoundConfiguration.PARKOUR.CHECKPOINT_TP_SOUND,
                 SoundConfiguration.PARKOUR.CHECKPOINT_TP_VOLUME,
                 SoundConfiguration.PARKOUR.CHECKPOINT_TP_PITCH);
@@ -475,6 +477,17 @@ public class ParkourManager extends Manager {
         if (teleportToSpawn || !restored) {
             SpawnUtil.teleportToSpawn(player);
         }
+    }
+
+    private void safeTeleport(Player player, Location location) {
+        player.setFallDistance(0F);
+        player.setVelocity(player.getVelocity().multiply(0));
+        player.teleport(location);
+
+        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
+            player.setFallDistance(0F);
+            player.setVelocity(player.getVelocity().multiply(0));
+        }, 1L);
     }
 
     public void handlePlayerQuit(Player player) {

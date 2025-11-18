@@ -5,7 +5,6 @@ import center.bedwars.lobby.sync.SyncEventType;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
@@ -21,7 +20,6 @@ public class SyncDataSerializer {
             .disableHtmlEscaping()
             .create();
 
-    private static final JsonParser JSON_PARSER = new JsonParser();
     private static final String GZIP_PREFIX = "GZIP:";
 
     public static String serialize(SyncEvent event) {
@@ -50,13 +48,11 @@ public class SyncDataSerializer {
 
             if (json.startsWith(GZIP_PREFIX)) {
                 dataToProcess = decompressData(json.substring(GZIP_PREFIX.length()));
-            } else if (json.startsWith("{")) {
-                dataToProcess = json;
             } else {
-                dataToProcess = decompressData(json);
+                dataToProcess = json;
             }
 
-            JsonObject obj = JSON_PARSER.parse(dataToProcess).getAsJsonObject();
+            JsonObject obj = GSON.fromJson(dataToProcess, JsonObject.class);
             String sourceLobby = obj.get("sourceLobby").getAsString();
             SyncEventType type = SyncEventType.fromIdentifier(obj.get("type").getAsString());
             long timestamp = obj.get("timestamp").getAsLong();

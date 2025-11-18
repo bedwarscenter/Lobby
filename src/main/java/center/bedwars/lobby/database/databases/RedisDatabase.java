@@ -8,6 +8,8 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.JedisPubSub;
 
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
@@ -16,7 +18,7 @@ public class RedisDatabase {
 
     private final Logger logger;
     private JedisPool jedisPool;
-    private Thread subscriptionThread;
+    private final Map<String, Thread> subscriptionThreads = new ConcurrentHashMap<>();
     private volatile boolean running = false;
 
     public RedisDatabase(Logger logger) {
@@ -50,14 +52,15 @@ public class RedisDatabase {
             }
 
             try (Jedis jedis = jedisPool.getResource()) {
-                jedis.ping();
-                logger.info("Redis connection established successfully!");
+                String response = jedis.ping();
+                logger.info("Redis connection established successfully! Response: " + response);
             }
 
             this.running = true;
 
         } catch (Exception e) {
             logger.severe("Failed to connect to Redis: " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException("Redis connection failed", e);
         }
     }
@@ -65,9 +68,12 @@ public class RedisDatabase {
     public void disconnect() {
         this.running = false;
 
-        if (subscriptionThread != null && subscriptionThread.isAlive()) {
-            subscriptionThread.interrupt();
+        for (Thread thread : subscriptionThreads.values()) {
+            if (thread != null && thread.isAlive()) {
+                thread.interrupt();
+            }
         }
+        subscriptionThreads.clear();
 
         if (jedisPool != null && !jedisPool.isClosed()) {
             jedisPool.close();
@@ -76,33 +82,77 @@ public class RedisDatabase {
     }
 
     public void publish(String channel, String message) {
+        if (!running || jedisPool == null) {
+            logger.warning("Cannot publish - Redis not connected");
+            return;
+        }
+
         try (Jedis jedis = jedisPool.getResource()) {
-            jedis.publish(channel, message);
+            long receivers = jedis.publish(channel, message);
+            logger.info("Published to channel " + channel + ", received by " + receivers + " subscribers");
         } catch (Exception e) {
-            logger.severe("Failed to publish message to Redis: " + e.getMessage());
+            logger.severe("Failed to publish message to Redis channel " + channel + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     public void subscribe(String channel, Consumer<String> messageHandler) {
-        subscriptionThread = new Thread(() -> {
-            try (Jedis jedis = jedisPool.getResource()) {
-                jedis.subscribe(new JedisPubSub() {
-                    @Override
-                    public void onMessage(String ch, String message) {
-                        if (ch.equals(channel)) {
-                            messageHandler.accept(message);
+        if (!running) {
+            logger.warning("Cannot subscribe - Redis not running");
+            return;
+        }
+
+        Thread subscriptionThread = new Thread(() -> {
+            while (running) {
+                try (Jedis jedis = jedisPool.getResource()) {
+                    logger.info("Starting subscription to channel: " + channel);
+
+                    jedis.subscribe(new JedisPubSub() {
+                        @Override
+                        public void onSubscribe(String ch, int subscribedChannels) {
+                            logger.info("Successfully subscribed to channel: " + ch);
                         }
+
+                        @Override
+                        public void onMessage(String ch, String message) {
+                            if (ch.equals(channel)) {
+                                try {
+                                    logger.info("Received message on channel " + ch + ", size: " + message.length());
+                                    messageHandler.accept(message);
+                                } catch (Exception e) {
+                                    logger.severe("Error processing message: " + e.getMessage());
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void onUnsubscribe(String ch, int subscribedChannels) {
+                            logger.info("Unsubscribed from channel: " + ch);
+                        }
+                    }, channel);
+                } catch (Exception e) {
+                    if (running) {
+                        logger.severe("Redis subscription error: " + e.getMessage());
+                        e.printStackTrace();
+                        try {
+                            Thread.sleep(5000);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    } else {
+                        break;
                     }
-                }, channel);
-            } catch (Exception e) {
-                if (running) {
-                    logger.severe("Redis subscription error: " + e.getMessage());
                 }
             }
         }, "Redis-Subscription-" + channel);
 
         subscriptionThread.setDaemon(true);
         subscriptionThread.start();
+        subscriptionThreads.put(channel, subscriptionThread);
+
+        logger.info("Subscription thread started for channel: " + channel);
     }
 
     public void set(String key, String value) {
@@ -110,6 +160,7 @@ public class RedisDatabase {
             jedis.set(key, value);
         } catch (Exception e) {
             logger.severe("Failed to set key in Redis: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -118,6 +169,7 @@ public class RedisDatabase {
             jedis.setex(key, expireSeconds, value);
         } catch (Exception e) {
             logger.severe("Failed to set key with expiration in Redis: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -126,6 +178,7 @@ public class RedisDatabase {
             return jedis.get(key);
         } catch (Exception e) {
             logger.severe("Failed to get key from Redis: " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }
@@ -135,6 +188,7 @@ public class RedisDatabase {
             jedis.del(key);
         } catch (Exception e) {
             logger.severe("Failed to delete key from Redis: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -143,6 +197,7 @@ public class RedisDatabase {
             return jedis.exists(key);
         } catch (Exception e) {
             logger.severe("Failed to check key existence in Redis: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
@@ -153,7 +208,7 @@ public class RedisDatabase {
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
-            return jedis.ping().equals("PONG");
+            return "PONG".equals(jedis.ping());
         } catch (Exception e) {
             return false;
         }
