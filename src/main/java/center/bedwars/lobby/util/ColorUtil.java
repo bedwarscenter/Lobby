@@ -8,8 +8,9 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
-@SuppressWarnings("unused")
 public final class ColorUtil {
+
+    private ColorUtil() {}
 
     public static String color(String text) {
         return ChatColor.translateAlternateColorCodes('&', text);
@@ -20,17 +21,23 @@ public final class ColorUtil {
     }
 
     public static void sendActionBar(Player player, String text) {
-        IChatBaseComponent comp = IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + color(text) + "\"}");
-        PacketPlayOutChat packet = new PacketPlayOutChat(comp, (byte) 2);
-        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(packet);
+        IChatBaseComponent comp = IChatBaseComponent.ChatSerializer.a(
+                "{\"text\":\"" + color(text) + "\"}");
+        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(
+                new PacketPlayOutChat(comp, (byte) 2));
     }
 
-    public static void sendTitle(Player player, String title, String subtitle, int fadeIn, int stay, int fadeOut) {
+    public static void sendTitle(Player player, String title, String subtitle,
+                                 int fadeIn, int stay, int fadeOut) {
         CraftPlayer cp = (CraftPlayer) player;
-        cp.getHandle().playerConnection.sendPacket(new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.TITLE,
-                IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + color(title) + "\"}"), fadeIn, stay, fadeOut));
-        cp.getHandle().playerConnection.sendPacket(new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.SUBTITLE,
-                IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + color(subtitle) + "\"}"), fadeIn, stay, fadeOut));
+        cp.getHandle().playerConnection.sendPacket(
+                new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.TITLE,
+                        IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + color(title) + "\"}"),
+                        fadeIn, stay, fadeOut));
+        cp.getHandle().playerConnection.sendPacket(
+                new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.SUBTITLE,
+                        IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + color(subtitle) + "\"}"),
+                        fadeIn, stay, fadeOut));
     }
 
     public static void sendTitle(Player player, String title, String subtitle) {

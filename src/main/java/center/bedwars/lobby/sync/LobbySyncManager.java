@@ -7,213 +7,181 @@ import center.bedwars.lobby.database.databases.MongoDatabaseConnection;
 import center.bedwars.lobby.database.databases.RedisDatabase;
 import center.bedwars.lobby.manager.Manager;
 import center.bedwars.lobby.sync.handlers.*;
-import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mongodb.client.MongoCollection;
 import lombok.Getter;
 import org.bson.Document;
 
-import java.util.HashMap;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
+import java.util.concurrent.*;
+import java.util.zip.Deflater;
 
 @Getter
 public class LobbySyncManager extends Manager {
 
-    private static final String REDIS_SYNC_CHANNEL = "bedwars:lobby:sync";
+    private static final String REDIS_CHANNEL = "bwl:ls";
     private static final String MONGO_COLLECTION = "lobby_sync_events";
+    private static final Gson GSON = new Gson();
+    private static final int BATCH_SIZE = 15;
+    private static final int BATCH_INTERVAL_MS = 100;
+    private static final int MAX_QUEUE_SIZE = 500;
+    private static final int MAX_DATA_SIZE = 40000;
 
-    private final Lobby lobby = Lobby.getINSTANCE();
-    private final Logger logger = lobby.getLogger();
     private final String lobbyId = SettingsConfiguration.LOBBY_ID;
-
     private RedisDatabase redis;
-    private MongoDatabaseConnection mongo;
     private MongoCollection<Document> syncCollection;
-
-    private final Map<SyncEventType, ISyncHandler> handlers = new HashMap<>();
-    private final ConcurrentLinkedQueue<SyncEvent> eventQueue = new ConcurrentLinkedQueue<>();
-    private final ScheduledExecutorService batchExecutor = Executors.newSingleThreadScheduledExecutor();
+    private final Map<SyncEventType, ISyncHandler> handlers = new ConcurrentHashMap<>();
+    private final BlockingQueue<SyncEvent> eventQueue = new LinkedBlockingQueue<>(MAX_QUEUE_SIZE);
+    private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);
     private volatile boolean processing = true;
-    private long lastEventTime = 0;
-    private static final long EVENT_COOLDOWN_MS = 10;
-    private static final int MAX_QUEUE_SIZE = 1000;
-    private static final int BATCH_SIZE = 20;
 
     @Override
     protected void onLoad() {
         DatabaseManager dbManager = Lobby.getManagerStorage().getManager(DatabaseManager.class);
-
         this.redis = dbManager.getRedis();
-        this.mongo = dbManager.getMongo();
-
-        if (!redis.isConnected() || !mongo.isConnected()) {
-            throw new IllegalStateException("Redis or MongoDB is not connected!");
-        }
-
-        this.syncCollection = mongo.getCollection(MONGO_COLLECTION);
+        this.syncCollection = dbManager.getMongo().getCollection(MONGO_COLLECTION);
 
         registerHandlers();
-        setupRedisSubscription();
-        setupBatchProcessing();
-
-        logger.info("LobbySyncManager initialized for lobby: " + lobbyId);
+        setupSubscription();
+        startBatchProcessor();
     }
 
     @Override
     protected void onUnload() {
-        this.processing = false;
+        processing = false;
+        executor.shutdownNow();
         handlers.clear();
-        batchExecutor.shutdown();
         eventQueue.clear();
     }
 
     private void registerHandlers() {
-        handlers.put(SyncEventType.BLOCK_PLACE, new BlockSyncHandler());
-        handlers.put(SyncEventType.BLOCK_BREAK, new BlockSyncHandler());
-        handlers.put(SyncEventType.NPC_CREATE, new NPCSyncHandler());
-        handlers.put(SyncEventType.NPC_DELETE, new NPCSyncHandler());
-        handlers.put(SyncEventType.NPC_UPDATE, new NPCSyncHandler());
-        handlers.put(SyncEventType.HOLOGRAM_CREATE, new HologramSyncHandler());
-        handlers.put(SyncEventType.HOLOGRAM_DELETE, new HologramSyncHandler());
-        handlers.put(SyncEventType.HOLOGRAM_UPDATE, new HologramSyncHandler());
+        ISyncHandler blockHandler = new BlockSyncHandler();
+        handlers.put(SyncEventType.BLOCK_PLACE, blockHandler);
+        handlers.put(SyncEventType.BLOCK_BREAK, blockHandler);
+
+        ISyncHandler npcHandler = new NPCSyncHandler();
+        handlers.put(SyncEventType.NPC_CREATE, npcHandler);
+        handlers.put(SyncEventType.NPC_DELETE, npcHandler);
+        handlers.put(SyncEventType.NPC_UPDATE, npcHandler);
+
+        ISyncHandler hologramHandler = new HologramSyncHandler();
+        handlers.put(SyncEventType.HOLOGRAM_CREATE, hologramHandler);
+        handlers.put(SyncEventType.HOLOGRAM_DELETE, hologramHandler);
+        handlers.put(SyncEventType.HOLOGRAM_UPDATE, hologramHandler);
+
         handlers.put(SyncEventType.CHUNK_SNAPSHOT, new ChunkSnapshotSyncHandler());
         handlers.put(SyncEventType.CONFIG_PUSH, new ConfigSyncHandler());
         handlers.put(SyncEventType.WORLD_SYNC, new WorldSyncHandler());
         handlers.put(SyncEventType.PARKOUR_SYNC, new ParkourSyncHandler());
         handlers.put(SyncEventType.FULL_SYNC, new FullSyncHandler());
-
-        logger.info("Registered " + handlers.size() + " sync handlers");
     }
 
-    private void setupRedisSubscription() {
-        redis.subscribe(REDIS_SYNC_CHANNEL, message -> {
-            if (!processing) return;
-
-            if (eventQueue.size() >= MAX_QUEUE_SIZE) {
-                logger.warning("Event queue full, dropping oldest event");
-                eventQueue.poll();
-            }
-
-            try {
-                SyncEvent event = SyncDataSerializer.deserialize(message);
-
-                if (event.isFromSameLobby(lobbyId)) {
-                    logger.info("Ignoring event from same lobby: " + lobbyId);
-                    return;
-                }
-
-                logger.info("Queued sync event: " + event.getType() + " from lobby: " + event.getSourceLobby());
-                eventQueue.offer(event);
-
-            } catch (Exception e) {
-                logger.severe("Failed to process sync event: " + e.getMessage());
-                e.printStackTrace();
-            }
-        });
-
-        logger.info("Redis subscription setup complete for channel: " + REDIS_SYNC_CHANNEL);
+    private void setupSubscription() {
+        redis.subscribe(REDIS_CHANNEL, this::processCompressed);
     }
 
-    private void setupBatchProcessing() {
-        batchExecutor.scheduleAtFixedRate(() -> {
+    private void startBatchProcessor() {
+        executor.scheduleAtFixedRate(() -> {
             if (!processing || eventQueue.isEmpty()) return;
 
             int processed = 0;
             SyncEvent event;
             while ((event = eventQueue.poll()) != null && processed < BATCH_SIZE) {
-                handleSyncEventImmediate(event);
+                handleEvent(event);
                 processed++;
-
-                if (processed % 5 == 0) {
-                    try {
-                        Thread.sleep(1);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
             }
+        }, 0, BATCH_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
 
-            if (processed > 0) {
-                logger.info("Processed " + processed + " sync events");
+    private void processCompressed(String base64) {
+        try {
+            byte[] compressed = java.util.Base64.getDecoder().decode(base64);
+            String json = decompress(compressed);
+            JsonObject obj = GSON.fromJson(json, JsonObject.class);
+
+            if (obj.get("lobby").getAsString().equals(lobbyId)) return;
+
+            SyncEvent event = new SyncEvent(
+                    obj.get("lobby").getAsString(),
+                    SyncEventType.fromIdentifier(obj.get("type").getAsString()),
+                    obj.get("time").getAsLong(),
+                    obj.getAsJsonObject("data")
+            );
+
+            if (!eventQueue.offer(event)) {
+                eventQueue.poll();
+                eventQueue.offer(event);
             }
-        }, 0, 50, TimeUnit.MILLISECONDS);
+        } catch (Exception ignored) {}
     }
 
     public void broadcastEvent(SyncEventType type, JsonObject data) {
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastEventTime < EVENT_COOLDOWN_MS) {
-            logger.warning("Event cooldown active, skipping: " + type);
-            return;
-        }
-        lastEventTime = currentTime;
-
-        if (data.toString().length() > 50000) {
-            logger.warning("Sync event data too large: " + type + " (" + data.toString().length() + " bytes)");
-            return;
-        }
+        if (data.toString().length() > MAX_DATA_SIZE) return;
 
         CompletableFuture.runAsync(() -> {
             try {
-                SyncEvent event = new SyncEvent(lobbyId, type, data);
-                String serialized = SyncDataSerializer.serialize(event);
+                JsonObject wrapper = new JsonObject();
+                wrapper.addProperty("lobby", lobbyId);
+                wrapper.addProperty("type", type.getIdentifier());
+                wrapper.addProperty("time", System.currentTimeMillis());
+                wrapper.add("data", data);
 
-                logger.info("Broadcasting event: " + type + " from lobby: " + lobbyId + " (size: " + serialized.length() + ")");
-                redis.publish(REDIS_SYNC_CHANNEL, serialized);
+                String json = GSON.toJson(wrapper);
+                byte[] compressed = compress(json);
+                redis.publish(REDIS_CHANNEL, java.util.Base64.getEncoder().encodeToString(compressed));
 
-                Document doc = new Document();
-                doc.put("sourceLobby", event.getSourceLobby());
-                doc.put("type", event.getType().getIdentifier());
-                doc.put("timestamp", event.getTimestamp());
-                doc.put("data", Document.parse(event.getData().toString()));
-
-                syncCollection.insertOne(doc);
-                logger.info("Event saved to MongoDB: " + type);
-
-            } catch (Exception e) {
-                logger.severe("Failed to broadcast sync event: " + e.getMessage());
-                e.printStackTrace();
-            }
+                executor.schedule(() -> {
+                    try {
+                        Document doc = new Document()
+                                .append("lobby", lobbyId)
+                                .append("type", type.getIdentifier())
+                                .append("time", System.currentTimeMillis())
+                                .append("data", Document.parse(data.toString()));
+                        syncCollection.insertOne(doc);
+                    } catch (Exception ignored) {}
+                }, 500, TimeUnit.MILLISECONDS);
+            } catch (Exception ignored) {}
         });
     }
 
-    private void handleSyncEventImmediate(SyncEvent event) {
+    private void handleEvent(SyncEvent event) {
         ISyncHandler handler = handlers.get(event.getType());
-
-        if (handler == null) {
-            logger.warning("No handler found for event type: " + event.getType());
-            return;
-        }
-
-        try {
-            logger.info("Handling sync event: " + event.getType() + " from lobby: " + event.getSourceLobby());
-            handler.handle(event);
-        } catch (Exception e) {
-            logger.severe("Error handling sync event " + event.getType() + ": " + e.getMessage());
-            e.printStackTrace();
+        if (handler != null) {
+            try {
+                handler.handle(event);
+            } catch (Exception ignored) {}
         }
     }
 
     public void performFullSync() {
-        CompletableFuture.runAsync(() -> {
-            try {
-                logger.info("Starting full lobby synchronization from lobby: " + lobbyId);
+        JsonObject data = new JsonObject();
+        data.addProperty("requestingLobby", lobbyId);
+        broadcastEvent(SyncEventType.FULL_SYNC, data);
+    }
 
-                JsonObject data = new JsonObject();
-                data.addProperty("requestingLobby", lobbyId);
+    private byte[] compress(String data) throws Exception {
+        byte[] input = data.getBytes(StandardCharsets.UTF_8);
+        Deflater deflater = new Deflater(Deflater.BEST_SPEED);
+        deflater.setInput(input);
+        deflater.finish();
 
-                broadcastEvent(SyncEventType.FULL_SYNC, data);
+        byte[] output = new byte[input.length];
+        int size = deflater.deflate(output);
+        deflater.end();
 
-            } catch (Exception e) {
-                logger.severe("Failed to perform full sync: " + e.getMessage());
-                e.printStackTrace();
-            }
-        });
+        byte[] result = new byte[size];
+        System.arraycopy(output, 0, result, 0, size);
+        return result;
+    }
+
+    private String decompress(byte[] compressed) throws Exception {
+        java.util.zip.Inflater inflater = new java.util.zip.Inflater();
+        inflater.setInput(compressed);
+        byte[] result = new byte[compressed.length * 4];
+        int size = inflater.inflate(result);
+        inflater.end();
+        return new String(result, 0, size, StandardCharsets.UTF_8);
     }
 }

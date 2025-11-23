@@ -39,14 +39,10 @@ public class ParkourSession {
     public Location getLastCheckpointLocation() {
         int maxCheckpoint = -1;
         for (int checkpoint : reachedCheckpoints) {
-            if (checkpoint > maxCheckpoint) {
-                maxCheckpoint = checkpoint;
-            }
+            if (checkpoint > maxCheckpoint) maxCheckpoint = checkpoint;
         }
 
-        if (maxCheckpoint == -1) {
-            return null;
-        }
+        if (maxCheckpoint == -1) return null;
 
         ParkourCheckpoint checkpoint = parkour.getCheckpoint(maxCheckpoint);
         return checkpoint != null ? checkpoint.getLocation() : null;

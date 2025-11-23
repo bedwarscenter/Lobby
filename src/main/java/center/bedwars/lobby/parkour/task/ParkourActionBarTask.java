@@ -26,31 +26,26 @@ public class ParkourActionBarTask extends BukkitRunnable {
             if (session == null) continue;
 
             long elapsed = session.getElapsedTime();
-            int checkpoints = session.getReachedCheckpoints().size();
+            int current = session.getReachedCheckpoints().size();
             int total = session.getParkour().getCheckpoints().size();
 
-            String time = formatTime(elapsed);
-            String message = ColorUtil.color(
-                    LanguageConfiguration.PARKOUR.ACTIONBAR_FORMAT
-                            .replace("%time%", time)
-                            .replace("%current%", String.valueOf(checkpoints))
-                            .replace("%total%", String.valueOf(total))
-            );
+            String message = ColorUtil.color(LanguageConfiguration.PARKOUR.ACTIONBAR_FORMAT
+                    .replace("%time%", formatTime(elapsed))
+                    .replace("%current%", String.valueOf(current))
+                    .replace("%total%", String.valueOf(total)));
 
             sendActionBar(player, message);
         }
     }
 
     private String formatTime(long millis) {
-        long minutes = millis / (60 * 1000);
-        long seconds = (millis % (60 * 1000)) / 1000;
-        long milliseconds = millis % 1000;
-        return String.format("%02d:%02d.%03d", minutes, seconds, milliseconds);
+        return String.format("%02d:%02d.%03d", millis / 60000,
+                (millis % 60000) / 1000, millis % 1000);
     }
 
     private void sendActionBar(Player player, String message) {
-        IChatBaseComponent component = IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + message + "\"}");
-        PacketPlayOutChat packet = new PacketPlayOutChat(component, (byte) 2);
-        NMSHelper.sendPacket(player, packet);
+        IChatBaseComponent component = IChatBaseComponent.ChatSerializer.a(
+                "{\"text\":\"" + message + "\"}");
+        NMSHelper.sendPacket(player, new PacketPlayOutChat(component, (byte) 2));
     }
 }

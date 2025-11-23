@@ -5,8 +5,6 @@ import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.database.DatabaseManager;
 import center.bedwars.lobby.database.databases.RedisDatabase;
 import center.bedwars.lobby.manager.Manager;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
 import lombok.Getter;
 import net.minecraft.server.v1_8_R3.*;
@@ -16,197 +14,149 @@ import org.bukkit.entity.Player;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 @Getter
 public class PlayerSyncManager extends Manager {
 
-    private static final String REDIS_PLAYER_CHANNEL = "bedwars:lobby:players";
-    private static final Gson GSON = new Gson();
+    private static final String REDIS_CHANNEL = "bwl:ps";
+    private static final int HEARTBEAT_INTERVAL_SEC = 5;
+    private static final int TIMEOUT_MS = 15000;
 
     private final String lobbyId = SettingsConfiguration.LOBBY_ID;
     private RedisDatabase redis;
     private final Map<UUID, RemotePlayer> remotePlayers = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     @Override
     protected void onLoad() {
-        DatabaseManager dbManager = Lobby.getManagerStorage().getManager(DatabaseManager.class);
-        this.redis = dbManager.getRedis();
-
-        setupRedisSubscription();
+        this.redis = Lobby.getManagerStorage().getManager(DatabaseManager.class).getRedis();
+        setupSubscription();
         startHeartbeat();
     }
 
     @Override
     protected void onUnload() {
-        executor.shutdown();
+        executor.shutdownNow();
         remotePlayers.clear();
     }
 
-    private void setupRedisSubscription() {
-        redis.subscribe(REDIS_PLAYER_CHANNEL, message -> {
-            try {
-                JsonObject json = GSON.fromJson(message, JsonObject.class);
-                String sourceLobby = json.get("lobbyId").getAsString();
-
-                if (sourceLobby.equals(lobbyId)) {
-                    return;
-                }
-
-                String action = json.get("action").getAsString();
-                UUID playerId = UUID.fromString(json.get("playerId").getAsString());
-                String playerName = json.get("playerName").getAsString();
-
-                switch (action) {
-                    case "JOIN":
-                        handleRemoteJoin(playerId, playerName, sourceLobby);
-                        break;
-                    case "QUIT":
-                        handleRemoteQuit(playerId);
-                        break;
-                    case "HEARTBEAT":
-                        handleRemoteHeartbeat(playerId, playerName, sourceLobby);
-                        break;
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+    private void setupSubscription() {
+        redis.subscribe(REDIS_CHANNEL, this::processMessage);
     }
 
     private void startHeartbeat() {
         executor.scheduleAtFixedRate(() -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                broadcastPlayerUpdate(player, "HEARTBEAT");
-            }
+            Bukkit.getOnlinePlayers().forEach(p -> broadcast(p, "H"));
+            cleanup();
+        }, HEARTBEAT_INTERVAL_SEC, HEARTBEAT_INTERVAL_SEC, TimeUnit.SECONDS);
+    }
 
-            remotePlayers.entrySet().removeIf(entry -> {
-                RemotePlayer rp = entry.getValue();
-                return System.currentTimeMillis() - rp.lastUpdate > 15000;
+    private void processMessage(String msg) {
+        try {
+            String[] parts = msg.split("\\|");
+            if (parts[0].equals(lobbyId)) return;
+
+            String action = parts[1];
+            UUID id = UUID.fromString(parts[2]);
+            String name = parts[3];
+
+            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+                switch (action) {
+                    case "J" -> handleJoin(id, name, parts[0]);
+                    case "Q" -> handleQuit(id);
+                    case "H" -> handleHeartbeat(id, name, parts[0]);
+                }
             });
-        }, 5, 5, TimeUnit.SECONDS);
+        } catch (Exception ignored) {}
     }
 
-    public void handlePlayerJoin(Player player) {
-        broadcastPlayerUpdate(player, "JOIN");
-
-        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
-            for (RemotePlayer rp : remotePlayers.values()) {
-                addToTabList(player, rp);
-            }
-        }, 20L);
+    private void handleJoin(UUID id, String name, String lobby) {
+        RemotePlayer rp = new RemotePlayer(id, name, lobby);
+        remotePlayers.put(id, rp);
+        Bukkit.getOnlinePlayers().forEach(p -> addToTab(p, rp));
     }
 
-    public void handlePlayerQuit(Player player) {
-        broadcastPlayerUpdate(player, "QUIT");
-
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            removeFromTabList(online, player.getUniqueId());
-        }
+    private void handleQuit(UUID id) {
+        remotePlayers.remove(id);
+        Bukkit.getOnlinePlayers().forEach(p -> removeFromTab(p, id));
     }
 
-    private void handleRemoteJoin(UUID playerId, String playerName, String sourceLobby) {
-        RemotePlayer rp = new RemotePlayer(playerId, playerName, sourceLobby);
-        remotePlayers.put(playerId, rp);
-
-        Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-            for (Player online : Bukkit.getOnlinePlayers()) {
-                addToTabList(online, rp);
-            }
-        });
-    }
-
-    private void handleRemoteQuit(UUID playerId) {
-        remotePlayers.remove(playerId);
-
-        Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-            for (Player online : Bukkit.getOnlinePlayers()) {
-                removeFromTabList(online, playerId);
-            }
-        });
-    }
-
-    private void handleRemoteHeartbeat(UUID playerId, String playerName, String sourceLobby) {
-        RemotePlayer rp = remotePlayers.get(playerId);
+    private void handleHeartbeat(UUID id, String name, String lobby) {
+        RemotePlayer rp = remotePlayers.get(id);
         if (rp == null) {
-            handleRemoteJoin(playerId, playerName, sourceLobby);
+            handleJoin(id, name, lobby);
         } else {
             rp.lastUpdate = System.currentTimeMillis();
         }
     }
 
-    private void broadcastPlayerUpdate(Player player, String action) {
-        JsonObject json = new JsonObject();
-        json.addProperty("lobbyId", lobbyId);
-        json.addProperty("action", action);
-        json.addProperty("playerId", player.getUniqueId().toString());
-        json.addProperty("playerName", player.getName());
-        json.addProperty("timestamp", System.currentTimeMillis());
-
-        redis.publish(REDIS_PLAYER_CHANNEL, GSON.toJson(json));
+    private void cleanup() {
+        long now = System.currentTimeMillis();
+        remotePlayers.entrySet().removeIf(e -> now - e.getValue().lastUpdate > TIMEOUT_MS);
     }
 
-    private void addToTabList(Player viewer, RemotePlayer remote) {
-        try {
-            EntityPlayer nmsPlayer = ((CraftPlayer) viewer).getHandle();
-            PlayerConnection connection = nmsPlayer.playerConnection;
-
-            GameProfile profile = new GameProfile(remote.playerId, "§7[" + remote.lobbyId + "] §f" + remote.playerName);
-
-            PacketPlayOutPlayerInfo packet = new PacketPlayOutPlayerInfo(
-                    PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER,
-                    new EntityPlayer(
-                            MinecraftServer.getServer(),
-                            MinecraftServer.getServer().getWorldServer(0),
-                            profile,
-                            new PlayerInteractManager(MinecraftServer.getServer().getWorldServer(0))
-                    )
-            );
-
-            connection.sendPacket(packet);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    public void handlePlayerJoin(Player player) {
+        broadcast(player, "J");
+        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(),
+                () -> remotePlayers.values().forEach(rp -> addToTab(player, rp)), 20L);
     }
 
-    private void removeFromTabList(Player viewer, UUID playerId) {
+    public void handlePlayerQuit(Player player) {
+        broadcast(player, "Q");
+        Bukkit.getOnlinePlayers().forEach(p -> removeFromTab(p, player.getUniqueId()));
+    }
+
+    private void broadcast(Player player, String action) {
+        String msg = String.join("|", lobbyId, action, player.getUniqueId().toString(), player.getName());
+        redis.publish(REDIS_CHANNEL, msg);
+    }
+
+    private void addToTab(Player viewer, RemotePlayer remote) {
         try {
-            EntityPlayer nmsPlayer = ((CraftPlayer) viewer).getHandle();
-            PlayerConnection connection = nmsPlayer.playerConnection;
+            PlayerConnection conn = ((CraftPlayer) viewer).getHandle().playerConnection;
+            GameProfile profile = new GameProfile(remote.id, "§7[" + remote.lobby + "] §f" + remote.name);
 
-            GameProfile profile = new GameProfile(playerId, "");
-
-            PacketPlayOutPlayerInfo packet = new PacketPlayOutPlayerInfo(
-                    PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER,
-                    new EntityPlayer(
-                            MinecraftServer.getServer(),
-                            MinecraftServer.getServer().getWorldServer(0),
-                            profile,
-                            new PlayerInteractManager(MinecraftServer.getServer().getWorldServer(0))
-                    )
+            EntityPlayer dummy = new EntityPlayer(
+                    MinecraftServer.getServer(),
+                    MinecraftServer.getServer().getWorldServer(0),
+                    profile,
+                    new PlayerInteractManager(MinecraftServer.getServer().getWorldServer(0))
             );
 
-            connection.sendPacket(packet);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            conn.sendPacket(new PacketPlayOutPlayerInfo(
+                    PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, dummy));
+        } catch (Exception ignored) {}
+    }
+
+    private void removeFromTab(Player viewer, UUID id) {
+        try {
+            PlayerConnection conn = ((CraftPlayer) viewer).getHandle().playerConnection;
+            GameProfile profile = new GameProfile(id, "");
+
+            EntityPlayer dummy = new EntityPlayer(
+                    MinecraftServer.getServer(),
+                    MinecraftServer.getServer().getWorldServer(0),
+                    profile,
+                    new PlayerInteractManager(MinecraftServer.getServer().getWorldServer(0))
+            );
+
+            conn.sendPacket(new PacketPlayOutPlayerInfo(
+                    PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, dummy));
+        } catch (Exception ignored) {}
     }
 
     @Getter
     private static class RemotePlayer {
-        private final UUID playerId;
-        private final String playerName;
-        private final String lobbyId;
+        private final UUID id;
+        private final String name;
+        private final String lobby;
         private long lastUpdate;
 
-        public RemotePlayer(UUID playerId, String playerName, String lobbyId) {
-            this.playerId = playerId;
-            this.playerName = playerName;
-            this.lobbyId = lobbyId;
+        RemotePlayer(UUID id, String name, String lobby) {
+            this.id = id;
+            this.name = name;
+            this.lobby = lobby;
             this.lastUpdate = System.currentTimeMillis();
         }
     }

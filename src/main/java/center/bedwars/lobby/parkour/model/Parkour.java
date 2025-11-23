@@ -19,13 +19,12 @@ public class Parkour {
 
     @Setter
     private Hologram startHologram;
-
     private final Map<Integer, Hologram> checkpointHolograms = new HashMap<>();
-
     @Setter
     private Hologram finishHologram;
 
-    public Parkour(String id, Location startLocation, List<ParkourCheckpoint> checkpoints, Location finishLocation) {
+    public Parkour(String id, Location startLocation, List<ParkourCheckpoint> checkpoints,
+                   Location finishLocation) {
         this.id = id;
         this.startLocation = startLocation;
         this.checkpoints = checkpoints;
@@ -38,7 +37,8 @@ public class Parkour {
 
     public ParkourCheckpoint getCheckpointAt(Location location) {
         for (ParkourCheckpoint checkpoint : checkpoints) {
-            if (checkpoint.getLocation().getBlock().getLocation().equals(location.getBlock().getLocation())) {
+            if (checkpoint.getLocation().getBlock().getLocation()
+                    .equals(location.getBlock().getLocation())) {
                 return checkpoint;
             }
         }
@@ -47,9 +47,7 @@ public class Parkour {
 
     public ParkourCheckpoint getCheckpoint(int number) {
         for (ParkourCheckpoint checkpoint : checkpoints) {
-            if (checkpoint.getNumber() == number) {
-                return checkpoint;
-            }
+            if (checkpoint.getNumber() == number) return checkpoint;
         }
         return null;
     }
