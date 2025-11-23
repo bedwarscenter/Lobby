@@ -10,6 +10,7 @@ import center.bedwars.lobby.manager.ManagerStorage;
 import center.bedwars.lobby.nms.NMSManager;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.sync.LobbySyncManager;
+import center.bedwars.lobby.sync.EntityPlayerSyncManager;
 import center.bedwars.lobby.manager.orphans.HotbarManager;
 import center.bedwars.lobby.manager.orphans.PlayerVisibilityManager;
 import lombok.Getter;
@@ -37,6 +38,7 @@ public final class Lobby extends JavaPlugin {
         managerStorage.registerAndLoad(new HotbarManager());
         managerStorage.registerAndLoad(new ParkourManager());
         managerStorage.registerAndLoad(new LobbySyncManager());
+        managerStorage.registerAndLoad(new EntityPlayerSyncManager());
         managerStorage.registerAndLoad(new ListenerManager());
 
         managerStorage.setAllWaiting();
@@ -53,5 +55,4 @@ public final class Lobby extends JavaPlugin {
             managerStorage.unloadAll();
         }
     }
-
 }

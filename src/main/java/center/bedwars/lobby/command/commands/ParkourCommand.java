@@ -10,6 +10,7 @@ import net.j4c0b3y.api.command.annotation.registration.Register;
 import org.bukkit.entity.Player;
 
 @Register(name = "parkour")
+@SuppressWarnings("unused")
 public class ParkourCommand {
 
     private final ParkourManager parkourManager;
@@ -19,7 +20,7 @@ public class ParkourCommand {
     }
 
     @Command(name = "")
-    public void main(@Sender Player player) {
+    public void parkour(@Sender Player player) {
         ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.PARKOUR_COMMAND.TITLE);
         ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.PARKOUR_COMMAND.CHECKPOINT_HELP);
         ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.PARKOUR_COMMAND.RESET_HELP);

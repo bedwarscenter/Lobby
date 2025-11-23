@@ -1,7 +1,5 @@
 package center.bedwars.lobby.dependency;
 
-import center.bedwars.lobby.configuration.ConfigurationManager;
-import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.dependency.dependencies.*;
 import center.bedwars.lobby.expansion.PlayerExpansion;
 import center.bedwars.lobby.manager.Manager;

@@ -46,7 +46,7 @@ public class SettingsConfiguration extends StaticConfig {
     }
 
     @Comment("Join messages based on rank")
-    public static Map<String, String> JOIN_MESSAGES = new HashMap<String, String>() {{
+    public static Map<String, String> JOIN_MESSAGES = new HashMap<>() {{
         put("MVP+", "test");
         put("MVP++", "test");
     }};

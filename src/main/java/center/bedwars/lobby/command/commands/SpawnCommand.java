@@ -11,6 +11,7 @@ import net.j4c0b3y.api.command.annotation.registration.Register;
 import org.bukkit.entity.Player;
 
 @Register(name = "spawn", aliases = {"stuck"})
+@SuppressWarnings("unused")
 public class SpawnCommand {
 
     @Command(name = "")

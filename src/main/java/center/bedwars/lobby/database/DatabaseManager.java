@@ -38,7 +38,4 @@ public class DatabaseManager extends Manager {
         lobby.getLogger().info("Database connections closed!");
     }
 
-    @Override
-    protected void onFinish() {
-    }
 }

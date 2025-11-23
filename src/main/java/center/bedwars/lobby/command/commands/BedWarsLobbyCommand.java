@@ -13,17 +13,17 @@ import net.j4c0b3y.api.command.annotation.parameter.classifier.Sender;
 import net.j4c0b3y.api.command.annotation.registration.Register;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 @Register(name = "bedwarslobby", aliases = {"bwl"})
 @Requires("bedwarslobby.command.admin")
+@SuppressWarnings("unused")
 public class BedWarsLobbyCommand {
 
     private final Lobby lobby = Lobby.getINSTANCE();
 
     @Command(name = "")
-    public void main(@Sender Player sender) {
+    public void bedwarslobby(@Sender Player sender) {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.TITLE);
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.RELOAD_HELP);
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.PARKOUR_HELP);
@@ -39,10 +39,8 @@ public class BedWarsLobbyCommand {
             ConfigurationManager.reloadConfigurations();
             long reloadTime = System.currentTimeMillis() - startTime;
 
-            Bukkit.getScheduler().runTask(lobby, () -> {
-                ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.RELOADED
-                        .replace("%time%", String.valueOf(reloadTime)));
-            });
+            Bukkit.getScheduler().runTask(lobby, () -> ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.RELOADED
+                    .replace("%time%", String.valueOf(reloadTime))));
         });
     }
 
@@ -70,21 +68,15 @@ public class BedWarsLobbyCommand {
 
         Location loc;
 
+        loc = sender.getLocation();
+        SettingsConfiguration.SPAWN_LOCATION = String.format("%s;%s;%s;%s;%s;%s",
+                loc.getX(), loc.getY(), loc.getZ(),
+                loc.getWorld().getName(),
+                loc.getYaw(), loc.getPitch());
         if (session != null) {
-            loc = sender.getLocation();
-
-            SettingsConfiguration.SPAWN_LOCATION = String.format("%s;%s;%s;%s;%s;%s",
-                    loc.getX(), loc.getY(), loc.getZ(),
-                    loc.getWorld().getName(),
-                    loc.getYaw(), loc.getPitch());
             ColorUtil.sendMessage(sender, "&aSet parkour spawn location!");
         } else {
-            loc = sender.getLocation();
 
-            SettingsConfiguration.SPAWN_LOCATION = String.format("%s;%s;%s;%s;%s;%s",
-                    loc.getX(), loc.getY(), loc.getZ(),
-                    loc.getWorld().getName(),
-                    loc.getYaw(), loc.getPitch());
             ColorUtil.sendMessage(sender, "&aSet lobby spawn location!");
         }
 

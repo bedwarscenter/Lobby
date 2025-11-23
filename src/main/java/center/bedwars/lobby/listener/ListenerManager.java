@@ -11,7 +11,7 @@ import center.bedwars.lobby.listener.listeners.important.JoinListener;
 import center.bedwars.lobby.listener.listeners.important.QuitListener;
 import center.bedwars.lobby.listener.listeners.parkour.MoveListener;
 import center.bedwars.lobby.listener.listeners.parkour.ParkourListener;
-import center.bedwars.lobby.listener.listeners.sync.LobbySyncListener;
+import center.bedwars.lobby.listener.listeners.sync.*;
 import center.bedwars.lobby.manager.Manager;
 import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
@@ -34,6 +34,10 @@ public class ListenerManager extends Manager {
                 new ParkourListener(),
                 new HotbarListener(),
                 new LobbySyncListener(),
+                new NPCCreationListener(),
+                new PlayerSyncListener(),
+                new EntityPacketListener(),
+                new HologramCreationListener(),
                 new PlayerEnvironmentListener(),
                 new PlayerSafetyListener(),
                 new PlayerRestrictionListener()

@@ -23,17 +23,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import xyz.refinedev.spigot.features.chunk.IChunkAPI;
 import xyz.refinedev.spigot.features.chunk.snapshot.ICarbonChunkSnapshot;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.util.zip.GZIPOutputStream;
-
 @Register(name = "sync")
 @Requires("bedwarslobby.command.sync")
+@SuppressWarnings("unused")
 public class SyncCommand {
 
     private final Lobby lobby = Lobby.getINSTANCE();
@@ -55,7 +51,7 @@ public class SyncCommand {
     }
 
     @Command(name = "")
-    public void main(@Sender Player sender) {
+    public void sync(@Sender Player sender) {
         ColorUtil.sendMessage(sender, "&8&m--------------------");
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.TITLE);
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_HELP);
@@ -97,7 +93,13 @@ public class SyncCommand {
 
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             try {
-                byte[] snapshotData = serializeChunk(chunk);
+                if (!chunk.isLoaded()) {
+                    Bukkit.getScheduler().runTask(lobby, () -> chunk.load(true));
+                    Thread.sleep(100);
+                }
+
+                ICarbonChunkSnapshot<?> snapshot = chunkAPI.takeSnapshot(chunk);
+                byte[] snapshotData = ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
 
                 JsonObject data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
                 getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
@@ -144,13 +146,21 @@ public class SyncCommand {
 
                     try {
                         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
-                        byte[] snapshotData = serializeChunk(chunk);
+
+                        if (!chunk.isLoaded()) {
+                            Bukkit.getScheduler().runTask(lobby, () -> chunk.load(true));
+                            Thread.sleep(50);
+                        }
+
+                        ICarbonChunkSnapshot<?> snapshot = chunkAPI.takeSnapshot(chunk);
+                        byte[] snapshotData = ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
 
                         JsonObject data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
                         getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
 
                         synced++;
                         totalSize += snapshotData.length;
+                        Thread.sleep(10);
                     } catch (Exception e) {
                         lobby.getLogger().warning(String.format(
                                 "Failed to sync chunk [%d, %d]: %s", chunkX, chunkZ, e.getMessage()
@@ -244,10 +254,5 @@ public class SyncCommand {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SYNCING);
         getSyncManager().performFullSync();
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SENT);
-    }
-
-    private byte[] serializeChunk(Chunk chunk) throws Exception {
-        ICarbonChunkSnapshot<?> snapshot = chunkAPI.takeSnapshot(chunk);
-        return ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
     }
 }
