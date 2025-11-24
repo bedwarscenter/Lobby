@@ -8,10 +8,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.block.Action;
 
 public final class EntityPacketListener implements Listener {
 
@@ -33,17 +31,12 @@ public final class EntityPacketListener implements Listener {
         NettyManager.cleanup(e.getPlayer());
     }
 
-    @EventHandler
-    public void onInteract(PlayerInteractEvent e) {
-        if (e.getAction() == Action.LEFT_CLICK_AIR || e.getAction() == Action.LEFT_CLICK_BLOCK) {
-            NettyManager.broadcastSwing(e.getPlayer(), true);
-            syncManager.handleAnimation(e.getPlayer(), 0);
-        }
-    }
-
     private void setupIncoming(Player player) {
         NettyManager.listenIncoming(player, "arm_animation", PacketPlayInArmAnimation.class,
-                (p, packet) -> syncManager.handleAnimation(p, 0));
+                (p, packet) -> {
+                    syncManager.handleAnimation(p, 0);
+                    NettyManager.broadcastSwing(p, true);
+                });
 
         NettyManager.listenIncoming(player, "entity_action", PacketPlayInEntityAction.class, (p, packet) -> {
             PacketPlayInEntityAction.EnumPlayerAction action = packet.b();
@@ -69,17 +62,24 @@ public final class EntityPacketListener implements Listener {
         NettyManager.listenIncoming(player, "use_entity", PacketPlayInUseEntity.class, (p, packet) -> {
             if (packet.a() == PacketPlayInUseEntity.EnumEntityUseAction.ATTACK) {
                 syncManager.handleAnimation(p, 0);
+                NettyManager.broadcastSwing(p, true);
             }
         });
 
         NettyManager.listenIncoming(player, "block_dig", PacketPlayInBlockDig.class, (p, packet) -> {
-            if (packet.c() == PacketPlayInBlockDig.EnumPlayerDigType.START_DESTROY_BLOCK ||
-                    packet.c() == PacketPlayInBlockDig.EnumPlayerDigType.ABORT_DESTROY_BLOCK) {
+            PacketPlayInBlockDig.EnumPlayerDigType type = packet.c();
+            if (type == PacketPlayInBlockDig.EnumPlayerDigType.START_DESTROY_BLOCK ||
+                    type == PacketPlayInBlockDig.EnumPlayerDigType.ABORT_DESTROY_BLOCK) {
                 syncManager.handleAnimation(p, 0);
+                NettyManager.broadcastSwing(p, true);
             }
         });
 
-        NettyManager.listenIncoming(player, "block_place", PacketPlayInBlockPlace.class,
-                (p, packet) -> syncManager.handleAnimation(p, 1));
+        NettyManager.listenIncoming(player, "block_place", PacketPlayInBlockPlace.class, (p, packet) -> {
+            if (packet.getFace() != -1 && packet.getItemStack() != null) {
+                syncManager.handleAnimation(p, 1);
+                NettyManager.broadcastSwing(p, true);
+            }
+        });
     }
 }

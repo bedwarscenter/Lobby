@@ -7,10 +7,9 @@ import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.handlers.ChunkSnapshotSyncHandler;
-import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer;
 import center.bedwars.lobby.util.ColorUtil;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import net.j4c0b3y.api.command.annotation.command.Command;
 import net.j4c0b3y.api.command.annotation.command.Requires;
 import net.j4c0b3y.api.command.annotation.parameter.Default;
@@ -23,6 +22,9 @@ import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.entity.Player;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Register(name = "sync")
 @Requires("bedwarslobby.command.sync")
@@ -53,8 +55,7 @@ public class SyncCommand {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_PUSHING);
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             long reloadTime = ConfigurationManager.reloadConfigurations();
-            ByteBuf data = Unpooled.buffer();
-            data.writeBoolean(true);
+            byte[] data = new byte[]{1};
             getSyncManager().broadcastEvent(SyncEventType.CONFIG_PUSH, data);
             Bukkit.getScheduler().runTask(lobby, () ->
                     ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_PUSHED
@@ -76,8 +77,9 @@ public class SyncCommand {
                     Thread.sleep(100);
                 }
                 byte[] snapshotData = ChunkSnapshotSyncHandler.serialize(chunk);
-                ByteBuf data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
-                getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
+                KryoSerializer.ChunkData chunkData = new KryoSerializer.ChunkData(chunkX, chunkZ, snapshotData);
+                byte[] serialized = KryoSerializer.serialize(chunkData);
+                getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, serialized);
                 Bukkit.getScheduler().runTask(lobby, () ->
                         ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_SYNCED
                                 .replace("%x%", String.valueOf(chunkX))
@@ -120,8 +122,9 @@ public class SyncCommand {
                             Thread.sleep(50);
                         }
                         byte[] snapshotData = ChunkSnapshotSyncHandler.serialize(chunk);
-                        ByteBuf data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
-                        getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
+                        KryoSerializer.ChunkData chunkData = new KryoSerializer.ChunkData(chunkX, chunkZ, snapshotData);
+                        byte[] serialized = KryoSerializer.serialize(chunkData);
+                        getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, serialized);
                         synced++;
                         totalSize += snapshotData.length;
                         Thread.sleep(10);
@@ -149,27 +152,35 @@ public class SyncCommand {
         WorldBorder border = world.getWorldBorder();
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             try {
-                ByteBuf data = Unpooled.buffer();
-                writeUTF(data, world.getName());
-                data.writeDouble(border.getCenter().getX());
-                data.writeDouble(border.getCenter().getZ());
-                data.writeDouble(border.getSize());
-                data.writeDouble(border.getDamageAmount());
-                data.writeDouble(border.getDamageBuffer());
-                data.writeInt(border.getWarningDistance());
-                data.writeInt(border.getWarningTime());
+                KryoSerializer.WorldSyncData worldData = new KryoSerializer.WorldSyncData();
+                worldData.worldName = world.getName();
+
+                KryoSerializer.WorldBorderData borderData = new KryoSerializer.WorldBorderData();
+                borderData.centerX = border.getCenter().getX();
+                borderData.centerZ = border.getCenter().getZ();
+                borderData.size = border.getSize();
+                borderData.damageAmount = border.getDamageAmount();
+                borderData.damageBuffer = border.getDamageBuffer();
+                borderData.warningDistance = border.getWarningDistance();
+                borderData.warningTime = border.getWarningTime();
+                worldData.border = borderData;
+
+                Map<String, String> gameRules = new HashMap<>();
                 String[] rules = world.getGameRules();
-                data.writeInt(rules.length);
                 for (String rule : rules) {
-                    writeUTF(data, rule);
-                    writeUTF(data, world.getGameRuleValue(rule));
+                    gameRules.put(rule, world.getGameRuleValue(rule));
                 }
-                writeUTF(data, world.getDifficulty().name());
-                data.writeBoolean(world.getPVP());
-                data.writeLong(world.getTime());
-                data.writeBoolean(world.hasStorm());
-                data.writeBoolean(world.isThundering());
-                getSyncManager().broadcastEvent(SyncEventType.WORLD_SYNC, data);
+                worldData.gameRules = gameRules;
+
+                worldData.difficulty = world.getDifficulty().name();
+                worldData.pvp = world.getPVP();
+                worldData.time = world.getTime();
+                worldData.storm = world.hasStorm();
+                worldData.thundering = world.isThundering();
+
+                byte[] serialized = KryoSerializer.serialize(worldData);
+                getSyncManager().broadcastEvent(SyncEventType.WORLD_SYNC, serialized);
+
                 Bukkit.getScheduler().runTask(lobby, () ->
                         ColorUtil.sendMessage(player, "&aWorld settings synchronized successfully!")
                 );
@@ -188,8 +199,7 @@ public class SyncCommand {
         ParkourManager parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
         Bukkit.getScheduler().runTask(lobby, () -> {
             parkourManager.scheduleParkourRefresh();
-            ByteBuf data = Unpooled.buffer();
-            writeUTF(data, "refresh");
+            byte[] data = new byte[]{1};
             getSyncManager().broadcastEvent(SyncEventType.PARKOUR_SYNC, data);
             ColorUtil.sendMessage(player, "&aParkour courses synchronized successfully!");
         });
@@ -200,11 +210,5 @@ public class SyncCommand {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SYNCING);
         getSyncManager().performFullSync();
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SENT);
-    }
-
-    private static void writeUTF(ByteBuf buf, String s) {
-        byte[] b = s.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        buf.writeShort(b.length);
-        buf.writeBytes(b);
     }
 }

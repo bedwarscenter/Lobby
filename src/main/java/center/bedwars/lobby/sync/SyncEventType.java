@@ -11,13 +11,7 @@ public enum SyncEventType {
     HOLOGRAM_UPDATE,
     CHUNK_SNAPSHOT,
     CONFIG_PUSH,
-    FULL_SYNC,
     WORLD_SYNC,
-    PARKOUR_SYNC;
-
-    private static final SyncEventType[] VALUES = values();
-
-    public static SyncEventType fromOrdinal(int id) {
-        return id >= 0 && id < VALUES.length ? VALUES[id] : null;
-    }
+    PARKOUR_SYNC,
+    FULL_SYNC
 }

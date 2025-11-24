@@ -3,8 +3,8 @@ package center.bedwars.lobby.listener.listeners.sync;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
-import io.netty.buffer.ByteBuf;
+import center.bedwars.lobby.sync.serialization.KryoSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer.BlockData;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -26,19 +26,21 @@ public class LobbySyncListener implements Listener {
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
         if (!player.hasMetadata("BuildMode")) return;
+
         Block block = event.getBlock();
-        Material material = block.getType();
-        byte data = block.getData();
-        ByteBuf eventData = SyncDataSerializer.serializeBlockData(block.getLocation(), material, data);
-        syncManager.broadcastEvent(SyncEventType.BLOCK_PLACE, eventData);
+        BlockData blockData = new BlockData(block.getLocation(), block.getType(), block.getData());
+        byte[] serialized = KryoSerializer.serialize(blockData);
+        syncManager.broadcastEvent(SyncEventType.BLOCK_PLACE, serialized);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         if (!player.hasMetadata("BuildMode")) return;
+
         Block block = event.getBlock();
-        ByteBuf eventData = SyncDataSerializer.serializeBlockData(block.getLocation(), Material.AIR, (byte) 0);
-        syncManager.broadcastEvent(SyncEventType.BLOCK_BREAK, eventData);
+        BlockData blockData = new BlockData(block.getLocation(), Material.AIR, (byte) 0);
+        byte[] serialized = KryoSerializer.serialize(blockData);
+        syncManager.broadcastEvent(SyncEventType.BLOCK_BREAK, serialized);
     }
 }

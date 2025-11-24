@@ -3,9 +3,8 @@ package center.bedwars.lobby.sync.handlers;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.sync.SyncEvent;
-import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
-import com.google.gson.JsonObject;
-import io.netty.buffer.ByteBuf;
+import center.bedwars.lobby.sync.serialization.KryoSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer.ChunkData;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Material;
@@ -28,20 +27,22 @@ public class ChunkSnapshotSyncHandler implements ISyncHandler {
 
     @Override
     public void handle(SyncEvent event) {
-        ByteBuf data = event.getData();
-        int cx = data.readInt();
-        int cz = data.readInt();
-        byte[] snapshotData = SyncDataSerializer.deserializeChunkSnapshotData(data);
-        chunkAPI.getChunkAtAsync(Bukkit.getWorld("world"), cx, cz, true, true, chunk -> {
-            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-                try {
-                    restoreChunkFromData(chunk, snapshotData);
-                    chunkAPI.refreshChunk(chunk);
-                } catch (Exception e) {
-                    Lobby.getINSTANCE().getLogger().warning("Failed to restore chunk: " + e.getMessage());
-                }
+        try {
+            ChunkData chunkData = KryoSerializer.deserialize(event.getData(), ChunkData.class);
+
+            chunkAPI.getChunkAtAsync(Bukkit.getWorld("world"), chunkData.chunkX, chunkData.chunkZ, true, true, chunk -> {
+                Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+                    try {
+                        restoreChunkFromData(chunk, chunkData.snapshotData);
+                        chunkAPI.refreshChunk(chunk);
+                    } catch (Exception e) {
+                        Lobby.getINSTANCE().getLogger().warning("Failed to restore chunk: " + e.getMessage());
+                    }
+                });
             });
-        });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void restoreChunkFromData(Chunk chunk, byte[] data) throws IOException {

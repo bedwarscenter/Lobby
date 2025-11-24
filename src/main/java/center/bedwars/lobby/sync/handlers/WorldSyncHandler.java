@@ -2,8 +2,8 @@ package center.bedwars.lobby.sync.handlers;
 
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.SyncEvent;
-import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
-import io.netty.buffer.ByteBuf;
+import center.bedwars.lobby.sync.serialization.KryoSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer.WorldSyncData;
 import org.bukkit.Bukkit;
 import org.bukkit.Difficulty;
 import org.bukkit.World;
@@ -13,62 +13,43 @@ public class WorldSyncHandler implements ISyncHandler {
 
     @Override
     public void handle(SyncEvent event) {
-        ByteBuf data = event.getData();
-        String worldName = SyncDataSerializer.readUTF(data);
-        World world = Bukkit.getWorld(worldName);
-        if (world == null) return;
-        Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-            if (data.readableBytes() > 0) {
-                applyBorder(world, data);
-            }
-            if (data.readableBytes() > 0) {
-                int len = data.readInt();
-                for (int i = 0; i < len; i++) {
-                    String key = SyncDataSerializer.readUTF(data);
-                    String value = SyncDataSerializer.readUTF(data);
-                    world.setGameRuleValue(key, value);
+        try {
+            WorldSyncData data = KryoSerializer.deserialize(event.getData(), WorldSyncData.class);
+            World world = Bukkit.getWorld(data.worldName);
+            if (world == null) return;
+
+            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+                if (data.border != null) {
+                    applyBorder(world, data.border);
                 }
-            }
-            if (data.readableBytes() > 0) {
-                Difficulty difficulty = Difficulty.valueOf(SyncDataSerializer.readUTF(data));
-                world.setDifficulty(difficulty);
-            }
-            if (data.readableBytes() > 0) {
-                world.setPVP(data.readBoolean());
-            }
-            if (data.readableBytes() > 0) {
-                world.setTime(data.readLong());
-            }
-            if (data.readableBytes() > 0) {
-                world.setStorm(data.readBoolean());
-            }
-            if (data.readableBytes() > 0) {
-                world.setThundering(data.readBoolean());
-            }
-        });
+
+                if (data.gameRules != null) {
+                    for (java.util.Map.Entry<String, String> entry : data.gameRules.entrySet()) {
+                        world.setGameRuleValue(entry.getKey(), entry.getValue());
+                    }
+                }
+
+                if (data.difficulty != null) {
+                    world.setDifficulty(Difficulty.valueOf(data.difficulty));
+                }
+
+                world.setPVP(data.pvp);
+                world.setTime(data.time);
+                world.setStorm(data.storm);
+                world.setThundering(data.thundering);
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    private void applyBorder(World world, ByteBuf data) {
+    private void applyBorder(World world, center.bedwars.lobby.sync.serialization.KryoSerializer.WorldBorderData data) {
         WorldBorder border = world.getWorldBorder();
-        if (data.readableBytes() > 0) {
-            double x = data.readDouble();
-            double z = data.readDouble();
-            border.setCenter(x, z);
-        }
-        if (data.readableBytes() > 0) {
-            border.setSize(data.readDouble());
-        }
-        if (data.readableBytes() > 0) {
-            border.setDamageAmount(data.readDouble());
-        }
-        if (data.readableBytes() > 0) {
-            border.setDamageBuffer(data.readDouble());
-        }
-        if (data.readableBytes() > 0) {
-            border.setWarningDistance(data.readInt());
-        }
-        if (data.readableBytes() > 0) {
-            border.setWarningTime(data.readInt());
-        }
+        border.setCenter(data.centerX, data.centerZ);
+        border.setSize(data.size);
+        border.setDamageAmount(data.damageAmount);
+        border.setDamageBuffer(data.damageBuffer);
+        border.setWarningDistance(data.warningDistance);
+        border.setWarningTime(data.warningTime);
     }
 }

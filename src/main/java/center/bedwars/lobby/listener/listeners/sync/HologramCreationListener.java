@@ -3,11 +3,11 @@ package center.bedwars.lobby.listener.listeners.sync;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer.HologramData;
 import eu.decentsoftware.holograms.api.DHAPI;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
 import eu.decentsoftware.holograms.event.DecentHologramsReloadEvent;
-import io.netty.buffer.ByteBuf;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -62,11 +62,19 @@ public class HologramCreationListener implements Listener {
     private void syncHologram(Hologram hologram, SyncEventType eventType) {
         try {
             if (hologram.getLocation() == null) return;
+
             String[] lines = hologram.getPage(0).getLines().stream()
                     .map(line -> line.getContent())
                     .toArray(String[]::new);
-            ByteBuf data = SyncDataSerializer.serializeHologramData(hologram.getName(), hologram.getLocation(), lines);
-            syncManager.broadcastEvent(eventType, data);
+
+            HologramData hologramData = new HologramData(
+                    hologram.getName(),
+                    hologram.getLocation(),
+                    lines
+            );
+
+            byte[] serialized = KryoSerializer.serialize(hologramData);
+            syncManager.broadcastEvent(eventType, serialized);
         } catch (Exception e) {
             Lobby.getINSTANCE().getLogger().warning("Failed to sync hologram " + hologram.getName() + ": " + e.getMessage());
         }

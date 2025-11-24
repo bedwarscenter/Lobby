@@ -23,6 +23,7 @@ dependencies {
     compileOnly "de.marcely.bedwars:API:${project.findProperty("mbedwarsApiVersion")}"
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
 
+    implementation("com.esotericsoftware:kryo:${project.findProperty("kryoVersion")}")
     implementation("redis.clients:jedis:${project.findProperty("jedisVersion")}")
     implementation("org.mongodb:mongodb-driver-sync:${project.findProperty("mongoDriverVersion")}")
     implementation("net.j4c0b3y.CommandAPI:bukkit:${project.findProperty("commandApiVersion")}")

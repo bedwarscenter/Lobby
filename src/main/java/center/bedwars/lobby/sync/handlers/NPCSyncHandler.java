@@ -3,8 +3,8 @@ package center.bedwars.lobby.sync.handlers;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.SyncEvent;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
-import io.netty.buffer.ByteBuf;
+import center.bedwars.lobby.sync.serialization.KryoSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer.NPCData;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCRegistry;
 import net.citizensnpcs.trait.SkinTrait;
@@ -25,37 +25,41 @@ public class NPCSyncHandler implements ISyncHandler {
 
     @Override
     public void handle(SyncEvent event) {
-        ByteBuf data = event.getData();
-        String npcId = SyncDataSerializer.readUTF(data);
-        Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-            try {
-                if (event.getType() == SyncEventType.NPC_CREATE) {
-                    handleCreate(data, npcId);
-                } else if (event.getType() == SyncEventType.NPC_DELETE) {
-                    handleDelete(npcId);
-                } else if (event.getType() == SyncEventType.NPC_UPDATE) {
-                    handleUpdate(data, npcId);
+        try {
+            NPCData npcData = KryoSerializer.deserialize(event.getData(), NPCData.class);
+
+            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+                try {
+                    if (event.getType() == SyncEventType.NPC_CREATE) {
+                        handleCreate(npcData);
+                    } else if (event.getType() == SyncEventType.NPC_DELETE) {
+                        handleDelete(npcData.npcId);
+                    } else if (event.getType() == SyncEventType.NPC_UPDATE) {
+                        handleUpdate(npcData);
+                    }
+                } catch (Exception e) {
+                    Lobby.getINSTANCE().getLogger().warning("Failed to sync NPC: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                Lobby.getINSTANCE().getLogger().warning("Failed to sync NPC: " + e.getMessage());
-            }
-        });
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    private void handleCreate(ByteBuf data, String npcId) {
-        Location loc = SyncDataSerializer.deserializeLocation(data, Lobby.getINSTANCE().getServer());
+    private void handleCreate(NPCData data) {
+        Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());
         if (loc == null) return;
-        String name = SyncDataSerializer.readUTF(data);
-        NPC existingNpc = findNPC(npcId);
+
+        NPC existingNpc = findNPC(data.npcId);
         if (existingNpc != null) {
             existingNpc.destroy();
         }
-        NPC npc = registry.createNPC(EntityType.PLAYER, name);
+
+        NPC npc = registry.createNPC(EntityType.PLAYER, data.name);
         npc.spawn(loc);
-        String texture = SyncDataSerializer.readUTF(data);
-        String signature = SyncDataSerializer.readUTF(data);
-        if (!texture.isEmpty() && !signature.isEmpty()) {
-            applySkin(npc, texture, signature);
+
+        if (!data.texture.isEmpty() && !data.signature.isEmpty()) {
+            applySkin(npc, data.texture, data.signature);
         }
     }
 
@@ -66,25 +70,23 @@ public class NPCSyncHandler implements ISyncHandler {
         }
     }
 
-    private void handleUpdate(ByteBuf data, String npcId) {
-        NPC npc = findNPC(npcId);
+    private void handleUpdate(NPCData data) {
+        NPC npc = findNPC(data.npcId);
         if (npc == null) return;
-        if (data.readableBytes() > 0) {
-            Location loc = SyncDataSerializer.deserializeLocation(data, Lobby.getINSTANCE().getServer());
-            if (loc != null) {
-                if (npc.isSpawned()) {
-                    npc.teleport(loc, null);
-                } else {
-                    npc.spawn(loc);
-                }
+
+        Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());
+        if (loc != null) {
+            if (npc.isSpawned()) {
+                npc.teleport(loc, null);
+            } else {
+                npc.spawn(loc);
             }
         }
-        String name = SyncDataSerializer.readUTF(data);
-        npc.setName(name);
-        String texture = SyncDataSerializer.readUTF(data);
-        String signature = SyncDataSerializer.readUTF(data);
-        if (!texture.isEmpty() && !signature.isEmpty()) {
-            applySkin(npc, texture, signature);
+
+        npc.setName(data.name);
+
+        if (!data.texture.isEmpty() && !data.signature.isEmpty()) {
+            applySkin(npc, data.texture, data.signature);
         }
     }
 

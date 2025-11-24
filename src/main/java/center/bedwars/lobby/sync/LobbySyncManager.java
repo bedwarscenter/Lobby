@@ -5,15 +5,12 @@ import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.database.DatabaseManager;
 import center.bedwars.lobby.manager.Manager;
 import center.bedwars.lobby.sync.handlers.*;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
+import center.bedwars.lobby.sync.serialization.KryoSerializer;
 import lombok.Getter;
 import org.bson.Document;
 
 import java.util.Map;
 import java.util.concurrent.*;
-import java.util.zip.Deflater;
-import java.util.zip.Inflater;
 
 @Getter
 public class LobbySyncManager extends Manager {
@@ -71,7 +68,7 @@ public class LobbySyncManager extends Manager {
     }
 
     private void setupSubscription() {
-        redis.subscribe(REDIS_CHANNEL, this::processCompressed);
+        redis.subscribe(REDIS_CHANNEL, this::processEvent);
     }
 
     private void startBatchProcessor() {
@@ -86,38 +83,40 @@ public class LobbySyncManager extends Manager {
         }, 0, BATCH_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
-    private void processCompressed(byte[] raw) {
+    private void processEvent(byte[] raw) {
         try {
-            byte[] compressed = raw;
-            ByteBuf packet = Unpooled.wrappedBuffer(decompress(compressed));
-            SyncEvent event = SyncEvent.deserialize(packet);
+            SyncEvent event = KryoSerializer.deserialize(raw, SyncEvent.class);
             if (event.isFromSameLobby(lobbyId)) return;
             if (!eventQueue.offer(event)) {
                 eventQueue.poll();
                 eventQueue.offer(event);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    public void broadcastEvent(SyncEventType type, ByteBuf data) {
-        if (data.readableBytes() > MAX_DATA_SIZE) return;
+    public void broadcastEvent(SyncEventType type, byte[] data) {
+        if (data.length > MAX_DATA_SIZE) return;
         CompletableFuture.runAsync(() -> {
             try {
                 SyncEvent event = new SyncEvent(lobbyId, type, data);
-                ByteBuf packet = event.serialize();
-                byte[] compressed = compress(packet.array());
-                redis.publish(REDIS_CHANNEL, compressed);
+                byte[] serialized = KryoSerializer.serialize(event);
+                redis.publish(REDIS_CHANNEL, serialized);
+
                 executor.schedule(() -> {
                     try {
                         Document doc = new Document()
                                 .append("lobby", lobbyId)
                                 .append("type", type.name())
                                 .append("time", System.currentTimeMillis())
-                                .append("data", java.util.Base64.getEncoder().encodeToString(compressed));
+                                .append("data", java.util.Base64.getEncoder().encodeToString(serialized));
                         syncCollection.insertOne(doc);
                     } catch (Exception ignored) {}
                 }, 500, TimeUnit.MILLISECONDS);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         });
     }
 
@@ -126,36 +125,14 @@ public class LobbySyncManager extends Manager {
         if (handler != null) {
             try {
                 handler.handle(event);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
     public void performFullSync() {
-        ByteBuf data = Unpooled.buffer();
-        data.writeBoolean(true);
+        byte[] data = new byte[]{1};
         broadcastEvent(SyncEventType.FULL_SYNC, data);
-    }
-
-    private byte[] compress(byte[] input) throws Exception {
-        Deflater deflater = new Deflater(Deflater.BEST_SPEED);
-        deflater.setInput(input);
-        deflater.finish();
-        byte[] output = new byte[input.length];
-        int size = deflater.deflate(output);
-        deflater.end();
-        byte[] result = new byte[size];
-        System.arraycopy(output, 0, result, 0, size);
-        return result;
-    }
-
-    private byte[] decompress(byte[] compressed) throws Exception {
-        Inflater inflater = new Inflater();
-        inflater.setInput(compressed);
-        byte[] result = new byte[compressed.length * 4];
-        int size = inflater.inflate(result);
-        inflater.end();
-        byte[] output = new byte[size];
-        System.arraycopy(result, 0, output, 0, size);
-        return output;
     }
 }

@@ -3,10 +3,10 @@ package center.bedwars.lobby.sync.handlers;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.SyncEvent;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer;
+import center.bedwars.lobby.sync.serialization.KryoSerializer.HologramData;
 import eu.decentsoftware.holograms.api.DHAPI;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
-import io.netty.buffer.ByteBuf;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
@@ -16,33 +16,38 @@ public class HologramSyncHandler implements ISyncHandler {
 
     @Override
     public void handle(SyncEvent event) {
-        ByteBuf data = event.getData();
-        String id = SyncDataSerializer.readUTF(data);
-        Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-            try {
-                if (event.getType() == SyncEventType.HOLOGRAM_CREATE) {
-                    handleCreate(data, id);
-                } else if (event.getType() == SyncEventType.HOLOGRAM_DELETE) {
-                    handleDelete(id);
-                } else if (event.getType() == SyncEventType.HOLOGRAM_UPDATE) {
-                    handleUpdate(data, id);
+        try {
+            HologramData hologramData = KryoSerializer.deserialize(event.getData(), HologramData.class);
+
+            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+                try {
+                    if (event.getType() == SyncEventType.HOLOGRAM_CREATE) {
+                        handleCreate(hologramData);
+                    } else if (event.getType() == SyncEventType.HOLOGRAM_DELETE) {
+                        handleDelete(hologramData.hologramId);
+                    } else if (event.getType() == SyncEventType.HOLOGRAM_UPDATE) {
+                        handleUpdate(hologramData);
+                    }
+                } catch (Exception e) {
+                    Lobby.getINSTANCE().getLogger().warning("Failed to sync hologram: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                Lobby.getINSTANCE().getLogger().warning("Failed to sync hologram: " + e.getMessage());
-            }
-        });
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    private void handleCreate(ByteBuf data, String id) {
-        Hologram existing = DHAPI.getHologram(id);
+    private void handleCreate(HologramData data) {
+        Hologram existing = DHAPI.getHologram(data.hologramId);
         if (existing != null) {
-            DHAPI.removeHologram(id);
+            DHAPI.removeHologram(data.hologramId);
         }
-        Location loc = SyncDataSerializer.deserializeLocation(data, Lobby.getINSTANCE().getServer());
+
+        Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());
         if (loc == null) return;
-        Hologram hologram = DHAPI.createHologram(id, loc);
-        String[] lines = SyncDataSerializer.deserializeHologramLines(data);
-        DHAPI.setHologramLines(hologram, Arrays.asList(lines));
+
+        Hologram hologram = DHAPI.createHologram(data.hologramId, loc);
+        DHAPI.setHologramLines(hologram, Arrays.asList(data.lines));
     }
 
     private void handleDelete(String id) {
@@ -52,19 +57,18 @@ public class HologramSyncHandler implements ISyncHandler {
         }
     }
 
-    private void handleUpdate(ByteBuf data, String id) {
-        Hologram hologram = DHAPI.getHologram(id);
+    private void handleUpdate(HologramData data) {
+        Hologram hologram = DHAPI.getHologram(data.hologramId);
         if (hologram == null) {
-            handleCreate(data, id);
+            handleCreate(data);
             return;
         }
-        if (data.readableBytes() > 0) {
-            Location loc = SyncDataSerializer.deserializeLocation(data, Lobby.getINSTANCE().getServer());
-            if (loc != null) {
-                DHAPI.moveHologram(hologram, loc);
-            }
+
+        Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());
+        if (loc != null) {
+            DHAPI.moveHologram(hologram, loc);
         }
-        String[] lines = SyncDataSerializer.deserializeHologramLines(data);
-        DHAPI.setHologramLines(hologram, Arrays.asList(lines));
+
+        DHAPI.setHologramLines(hologram, Arrays.asList(data.lines));
     }
 }
