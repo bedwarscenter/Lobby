@@ -5,6 +5,8 @@ import lombok.experimental.UtilityClass;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.NetworkManager;
 import net.minecraft.server.v1_8_R3.Packet;
+import net.minecraft.server.v1_8_R3.PacketPlayOutAnimation;
+import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
@@ -124,5 +126,14 @@ public class NettyManager {
         return INTERCEPTORS.values().stream()
                 .mapToInt(i -> i.getHandlers().size())
                 .sum();
+    }
+
+    public static void broadcastSwing(Player p, boolean mainHand){
+        PacketPlayOutAnimation pkt = new PacketPlayOutAnimation(
+                ((CraftPlayer)p).getHandle(), mainHand ? 0 : 3);
+        for(Player viewer : org.bukkit.Bukkit.getOnlinePlayers()){
+            if(viewer.equals(p)) continue;
+            ((CraftPlayer)viewer).getHandle().playerConnection.sendPacket(pkt);
+        }
     }
 }

@@ -2,11 +2,10 @@ package center.bedwars.lobby.database.databases;
 
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import lombok.Getter;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPoolConfig;
-import redis.clients.jedis.JedisPubSub;
+import redis.clients.jedis.*;
+import redis.clients.jedis.params.SetParams;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -67,28 +66,22 @@ public class RedisDatabase {
 
     public void disconnect() {
         this.running = false;
-
         for (Thread thread : subscriptionThreads.values()) {
             if (thread != null && thread.isAlive()) {
                 thread.interrupt();
             }
         }
         subscriptionThreads.clear();
-
         if (jedisPool != null && !jedisPool.isClosed()) {
             jedisPool.close();
             logger.info("Redis connection closed!");
         }
     }
 
-    public void publish(String channel, String message) {
-        if (!running || jedisPool == null) {
-            logger.warning("Cannot publish - Redis not connected");
-            return;
-        }
-
+    public void publish(String channel, byte[] message) {
+        if (!running || jedisPool == null) return;
         try (Jedis jedis = jedisPool.getResource()) {
-            long receivers = jedis.publish(channel, message);
+            long receivers = jedis.publish(channel.getBytes(StandardCharsets.UTF_8), message);
             logger.info("Published to channel " + channel + ", received by " + receivers + " subscribers");
         } catch (Exception e) {
             logger.severe("Failed to publish message to Redis channel " + channel + ": " + e.getMessage());
@@ -96,63 +89,37 @@ public class RedisDatabase {
         }
     }
 
-    public void subscribe(String channel, Consumer<String> messageHandler) {
-        if (!running) {
-            logger.warning("Cannot subscribe - Redis not running");
-            return;
-        }
-
-        Thread subscriptionThread = new Thread(() -> {
+    public void subscribe(String channel, Consumer<byte[]> messageHandler) {
+        if (!running) return;
+        Thread t = new Thread(() -> {
             while (running) {
                 try (Jedis jedis = jedisPool.getResource()) {
-                    logger.info("Starting subscription to channel: " + channel);
-
-                    jedis.subscribe(new JedisPubSub() {
+                    jedis.subscribe(new BinaryJedisPubSub() {
                         @Override
-                        public void onSubscribe(String ch, int subscribedChannels) {
-                            logger.info("Successfully subscribed to channel: " + ch);
+                        public void onSubscribe(byte[] ch, int subscribedChannels) {
+                            logger.info("Subscribed to channel: " + new String(ch, StandardCharsets.UTF_8));
                         }
 
                         @Override
-                        public void onMessage(String ch, String message) {
-                            if (ch.equals(channel)) {
-                                try {
-                                    logger.info("Received message on channel " + ch + ", size: " + message.length());
-                                    messageHandler.accept(message);
-                                } catch (Exception e) {
-                                    logger.severe("Error processing message: " + e.getMessage());
-                                    e.printStackTrace();
-                                }
+                        public void onUnsubscribe(byte[] ch, int subscribedChannels) {
+                            logger.info("Unsubscribed from channel: " + new String(ch, StandardCharsets.UTF_8));
+                        }
+
+                        @Override
+                        public void onMessage(byte[] ch, byte[] message) {
+                            if (java.util.Arrays.equals(ch, channel.getBytes(StandardCharsets.UTF_8))) {
+                                messageHandler.accept(message);
                             }
                         }
-
-                        @Override
-                        public void onUnsubscribe(String ch, int subscribedChannels) {
-                            logger.info("Unsubscribed from channel: " + ch);
-                        }
-                    }, channel);
+                    }, channel.getBytes(StandardCharsets.UTF_8));
                 } catch (Exception e) {
-                    if (running) {
-                        logger.severe("Redis subscription error: " + e.getMessage());
-                        e.printStackTrace();
-                        try {
-                            Thread.sleep(5000);
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
+                    if (running) try { Thread.sleep(5000); } catch (InterruptedException ie) { break; }
                 }
             }
         }, "Redis-Subscription-" + channel);
-
-        subscriptionThread.setDaemon(true);
-        subscriptionThread.start();
-        subscriptionThreads.put(channel, subscriptionThread);
-
-        logger.info("Subscription thread started for channel: " + channel);
+        t.setDaemon(true);
+        t.start();
+        subscriptionThreads.put(channel, t);
     }
 
     public void set(String key, String value) {

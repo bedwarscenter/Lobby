@@ -4,7 +4,7 @@ import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
-import com.google.gson.JsonObject;
+import io.netty.buffer.ByteBuf;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -19,45 +19,26 @@ public class LobbySyncListener implements Listener {
     private final LobbySyncManager syncManager;
 
     public LobbySyncListener() {
-        this.syncManager = Lobby
-                .getManagerStorage()
-                .getManager(LobbySyncManager.class);
+        this.syncManager = Lobby.getManagerStorage().getManager(LobbySyncManager.class);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
-
         Player player = event.getPlayer();
         if (!player.hasMetadata("BuildMode")) return;
-
         Block block = event.getBlock();
         Material material = block.getType();
         byte data = block.getData();
-
-        JsonObject eventData = SyncDataSerializer.serializeBlockData(
-                block.getLocation(),
-                material,
-                data
-        );
-
+        ByteBuf eventData = SyncDataSerializer.serializeBlockData(block.getLocation(), material, data);
         syncManager.broadcastEvent(SyncEventType.BLOCK_PLACE, eventData);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-
         Player player = event.getPlayer();
         if (!player.hasMetadata("BuildMode")) return;
-
         Block block = event.getBlock();
-        Material material = block.getType();
-
-        JsonObject eventData = SyncDataSerializer.serializeBlockData(
-                block.getLocation(),
-                material,
-                (byte) 0
-        );
-
+        ByteBuf eventData = SyncDataSerializer.serializeBlockData(block.getLocation(), Material.AIR, (byte) 0);
         syncManager.broadcastEvent(SyncEventType.BLOCK_BREAK, eventData);
     }
 }

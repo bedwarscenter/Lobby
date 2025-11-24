@@ -11,6 +11,7 @@ import center.bedwars.lobby.nms.NMSManager;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.EntityPlayerSyncManager;
+import center.bedwars.lobby.sync.PlayerSyncManager;
 import center.bedwars.lobby.manager.orphans.HotbarManager;
 import center.bedwars.lobby.manager.orphans.PlayerVisibilityManager;
 import lombok.Getter;
@@ -30,23 +31,37 @@ public final class Lobby extends JavaPlugin {
         managerStorage = new ManagerStorage();
 
         managerStorage.registerAndLoad(new ConfigurationManager());
-        managerStorage.registerAndLoad(new NMSManager());
         managerStorage.registerAndLoad(new DependencyManager());
+
+        SettingsConfiguration.LOBBY_ID = managerStorage
+                .getManager(DependencyManager.class)
+                .getPhoenix()
+                .getApi()
+                .getNetworkHandler()
+                .getServerName();
+
+        managerStorage.registerAndLoad(new NMSManager());
         managerStorage.registerAndLoad(new DatabaseManager());
+
         managerStorage.registerAndLoad(new CommandManager());
         managerStorage.registerAndLoad(new PlayerVisibilityManager());
         managerStorage.registerAndLoad(new HotbarManager());
         managerStorage.registerAndLoad(new ParkourManager());
-        managerStorage.registerAndLoad(new LobbySyncManager());
+
+        managerStorage.registerAndLoad(new PlayerSyncManager());
         managerStorage.registerAndLoad(new EntityPlayerSyncManager());
+        managerStorage.registerAndLoad(new LobbySyncManager());
+
         managerStorage.registerAndLoad(new ListenerManager());
 
         managerStorage.setAllWaiting();
         managerStorage.finishAll();
 
-        SettingsConfiguration.LOBBY_ID = getManagerStorage().getManager(DependencyManager.class).getPhoenix().getApi().getNetworkHandler().getServerName();
         ConfigurationManager.saveConfigurations();
         ConfigurationManager.reloadConfigurations();
+
+        getLogger().info("Lobby ID: " + SettingsConfiguration.LOBBY_ID);
+        getLogger().info("BedWarsLobby enabled successfully!");
     }
 
     @Override
@@ -54,5 +69,6 @@ public final class Lobby extends JavaPlugin {
         if (managerStorage != null) {
             managerStorage.unloadAll();
         }
+        getLogger().info("BedWarsLobby disabled!");
     }
 }

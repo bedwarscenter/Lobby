@@ -3,15 +3,14 @@ package center.bedwars.lobby.command.commands;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.ConfigurationManager;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
-import center.bedwars.lobby.dependency.DependencyManager;
-import center.bedwars.lobby.dependency.dependencies.CarbonDependency;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.handlers.ChunkSnapshotSyncHandler;
 import center.bedwars.lobby.sync.serialization.SyncDataSerializer;
 import center.bedwars.lobby.util.ColorUtil;
-import com.google.gson.JsonObject;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import net.j4c0b3y.api.command.annotation.command.Command;
 import net.j4c0b3y.api.command.annotation.command.Requires;
 import net.j4c0b3y.api.command.annotation.parameter.Default;
@@ -24,8 +23,6 @@ import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.entity.Player;
-import xyz.refinedev.spigot.features.chunk.IChunkAPI;
-import xyz.refinedev.spigot.features.chunk.snapshot.ICarbonChunkSnapshot;
 
 @Register(name = "sync")
 @Requires("bedwarslobby.command.sync")
@@ -33,18 +30,6 @@ import xyz.refinedev.spigot.features.chunk.snapshot.ICarbonChunkSnapshot;
 public class SyncCommand {
 
     private final Lobby lobby = Lobby.getINSTANCE();
-    private final IChunkAPI chunkAPI;
-
-    public SyncCommand() {
-        DependencyManager depManager = Lobby.getManagerStorage().getManager(DependencyManager.class);
-        CarbonDependency carbon = depManager.getCarbon();
-
-        if (!carbon.isApiAvailable()) {
-            throw new IllegalStateException("Carbon API is required for sync commands!");
-        }
-
-        this.chunkAPI = carbon.getChunkRegistry();
-    }
 
     private LobbySyncManager getSyncManager() {
         return Lobby.getManagerStorage().getManager(LobbySyncManager.class);
@@ -66,16 +51,11 @@ public class SyncCommand {
     @Command(name = "config")
     public void configPush(@Sender Player sender) {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_PUSHING);
-
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             long reloadTime = ConfigurationManager.reloadConfigurations();
-
-            JsonObject data = new JsonObject();
-            data.addProperty("configType", "all");
-            data.addProperty("reloadTime", reloadTime);
-
+            ByteBuf data = Unpooled.buffer();
+            data.writeBoolean(true);
             getSyncManager().broadcastEvent(SyncEventType.CONFIG_PUSH, data);
-
             Bukkit.getScheduler().runTask(lobby, () ->
                     ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_PUSHED
                             .replace("%time%", String.valueOf(reloadTime)))
@@ -86,24 +66,18 @@ public class SyncCommand {
     @Command(name = "chunk")
     public void chunkSync(@Sender Player player) {
         ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_SYNCING);
-
         Chunk chunk = player.getLocation().getChunk();
         int chunkX = chunk.getX();
         int chunkZ = chunk.getZ();
-
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             try {
                 if (!chunk.isLoaded()) {
                     Bukkit.getScheduler().runTask(lobby, () -> chunk.load(true));
                     Thread.sleep(100);
                 }
-
-                ICarbonChunkSnapshot<?> snapshot = chunkAPI.takeSnapshot(chunk);
-                byte[] snapshotData = ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
-
-                JsonObject data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
+                byte[] snapshotData = ChunkSnapshotSyncHandler.serialize(chunk);
+                ByteBuf data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
                 getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
-
                 Bukkit.getScheduler().runTask(lobby, () ->
                         ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_SYNCED
                                 .replace("%x%", String.valueOf(chunkX))
@@ -126,38 +100,28 @@ public class SyncCommand {
             ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.RADIUS_ERROR);
             return;
         }
-
         ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.AREA_SYNCING
                 .replace("%radius%", String.valueOf(radius)));
-
         Chunk centerChunk = player.getLocation().getChunk();
         int centerX = centerChunk.getX();
         int centerZ = centerChunk.getZ();
         World world = centerChunk.getWorld();
-
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             int synced = 0;
             long totalSize = 0;
-
             for (int x = -radius; x <= radius; x++) {
                 for (int z = -radius; z <= radius; z++) {
                     int chunkX = centerX + x;
                     int chunkZ = centerZ + z;
-
                     try {
                         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
-
                         if (!chunk.isLoaded()) {
                             Bukkit.getScheduler().runTask(lobby, () -> chunk.load(true));
                             Thread.sleep(50);
                         }
-
-                        ICarbonChunkSnapshot<?> snapshot = chunkAPI.takeSnapshot(chunk);
-                        byte[] snapshotData = ChunkSnapshotSyncHandler.serializeSnapshot(snapshot);
-
-                        JsonObject data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
+                        byte[] snapshotData = ChunkSnapshotSyncHandler.serialize(chunk);
+                        ByteBuf data = SyncDataSerializer.serializeChunkSnapshot(chunkX, chunkZ, snapshotData);
                         getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, data);
-
                         synced++;
                         totalSize += snapshotData.length;
                         Thread.sleep(10);
@@ -168,10 +132,8 @@ public class SyncCommand {
                     }
                 }
             }
-
             final int finalSynced = synced;
             final long finalSize = totalSize;
-
             Bukkit.getScheduler().runTask(lobby, () ->
                     ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.AREA_SYNCED
                             .replace("%chunks%", String.valueOf(finalSynced))
@@ -183,42 +145,31 @@ public class SyncCommand {
     @Command(name = "world")
     public void worldSync(@Sender Player player) {
         ColorUtil.sendMessage(player, "&eStarting world synchronization...");
-
         World world = player.getWorld();
         WorldBorder border = world.getWorldBorder();
-
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             try {
-                JsonObject data = new JsonObject();
-                data.addProperty("worldName", world.getName());
-
-                JsonObject borderData = new JsonObject();
-                JsonObject center = new JsonObject();
-                center.addProperty("x", border.getCenter().getX());
-                center.addProperty("z", border.getCenter().getZ());
-                borderData.add("center", center);
-                borderData.addProperty("size", border.getSize());
-                borderData.addProperty("damageAmount", border.getDamageAmount());
-                borderData.addProperty("damageBuffer", border.getDamageBuffer());
-                borderData.addProperty("warningDistance", border.getWarningDistance());
-                borderData.addProperty("warningTime", border.getWarningTime());
-                data.add("worldBorder", borderData);
-
-                JsonObject gameRules = new JsonObject();
-                for (String rule : world.getGameRules()) {
-                    gameRules.addProperty(rule, world.getGameRuleValue(rule));
+                ByteBuf data = Unpooled.buffer();
+                writeUTF(data, world.getName());
+                data.writeDouble(border.getCenter().getX());
+                data.writeDouble(border.getCenter().getZ());
+                data.writeDouble(border.getSize());
+                data.writeDouble(border.getDamageAmount());
+                data.writeDouble(border.getDamageBuffer());
+                data.writeInt(border.getWarningDistance());
+                data.writeInt(border.getWarningTime());
+                String[] rules = world.getGameRules();
+                data.writeInt(rules.length);
+                for (String rule : rules) {
+                    writeUTF(data, rule);
+                    writeUTF(data, world.getGameRuleValue(rule));
                 }
-                data.add("gameRules", gameRules);
-
-                data.addProperty("difficulty", world.getDifficulty().name());
-                data.addProperty("pvp", world.getPVP());
-                data.addProperty("time", world.getTime());
-                data.addProperty("storm", world.hasStorm());
-                data.addProperty("thundering", world.isThundering());
-                data.addProperty("weather", world.getWeatherDuration());
-
+                writeUTF(data, world.getDifficulty().name());
+                data.writeBoolean(world.getPVP());
+                data.writeLong(world.getTime());
+                data.writeBoolean(world.hasStorm());
+                data.writeBoolean(world.isThundering());
                 getSyncManager().broadcastEvent(SyncEventType.WORLD_SYNC, data);
-
                 Bukkit.getScheduler().runTask(lobby, () ->
                         ColorUtil.sendMessage(player, "&aWorld settings synchronized successfully!")
                 );
@@ -234,17 +185,12 @@ public class SyncCommand {
     @Command(name = "parkour")
     public void parkourSync(@Sender Player player) {
         ColorUtil.sendMessage(player, "&eStarting parkour synchronization...");
-
         ParkourManager parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
-
         Bukkit.getScheduler().runTask(lobby, () -> {
             parkourManager.scheduleParkourRefresh();
-
-            JsonObject data = new JsonObject();
-            data.addProperty("action", "refresh");
-
+            ByteBuf data = Unpooled.buffer();
+            writeUTF(data, "refresh");
             getSyncManager().broadcastEvent(SyncEventType.PARKOUR_SYNC, data);
-
             ColorUtil.sendMessage(player, "&aParkour courses synchronized successfully!");
         });
     }
@@ -254,5 +200,11 @@ public class SyncCommand {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SYNCING);
         getSyncManager().performFullSync();
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SENT);
+    }
+
+    private static void writeUTF(ByteBuf buf, String s) {
+        byte[] b = s.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        buf.writeShort(b.length);
+        buf.writeBytes(b);
     }
 }
