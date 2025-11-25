@@ -4,7 +4,6 @@ import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.SyncEvent;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.serialization.KryoSerializer;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
 import center.bedwars.lobby.sync.serialization.KryoSerializer.BlockData;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;

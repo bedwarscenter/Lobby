@@ -17,6 +17,7 @@ import org.bukkit.entity.Player;
 import java.util.*;
 import java.util.concurrent.*;
 
+@SuppressWarnings("unused")
 public class PlayerSyncManager extends Manager {
 
     private static final String REDIS_CHANNEL = "bwl:ps";
@@ -218,7 +219,6 @@ public class PlayerSyncManager extends Manager {
     private static final class RemotePlayer {
         private final UUID id;
         private final String name;
-        private final String lobby;
         private final String texture;
         private final String signature;
         private long lastUpdate;
@@ -226,7 +226,6 @@ public class PlayerSyncManager extends Manager {
         RemotePlayer(UUID id, String name, String lobby, String texture, String signature) {
             this.id = id;
             this.name = name;
-            this.lobby = lobby;
             this.texture = texture;
             this.signature = signature;
             this.lastUpdate = System.currentTimeMillis();

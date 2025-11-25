@@ -8,6 +8,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
+@SuppressWarnings("unused")
 public final class ColorUtil {
 
     private ColorUtil() {}

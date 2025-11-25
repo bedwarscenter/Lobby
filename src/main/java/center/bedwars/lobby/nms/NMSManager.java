@@ -15,11 +15,6 @@ public class NMSManager extends Manager {
     protected void onLoad() {
         this.nmsDependency = new NMSDependency();
         this.nmsAvailable = nmsDependency.isApiAvailable();
-
-        if (!nmsAvailable) {
-            return;
-        }
-
     }
 
     @Override
@@ -35,6 +30,6 @@ public class NMSManager extends Manager {
         if (!isNMSAvailable()) {
             throw new IllegalStateException("NMS is not available!");
         }
-        return NMSHelper.class.cast(null);
+        return null;
     }
 }

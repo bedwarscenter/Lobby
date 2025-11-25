@@ -11,6 +11,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 
 @Getter
+@SuppressWarnings("unused")
 public class PacketInterceptor {
 
     private final Player player;

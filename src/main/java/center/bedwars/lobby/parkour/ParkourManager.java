@@ -32,6 +32,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Getter
+@SuppressWarnings("unused")
 public class ParkourManager extends Manager {
 
     private final Map<String, Parkour> parkours = new HashMap<>();

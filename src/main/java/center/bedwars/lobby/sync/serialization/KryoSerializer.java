@@ -10,9 +10,10 @@ import org.bukkit.Material;
 import java.io.ByteArrayOutputStream;
 import java.util.Map;
 
+@SuppressWarnings("unused")
 public final class KryoSerializer {
 
-    private static final Pool<Kryo> kryoPool = new Pool<Kryo>(true, false, 32) {
+    private static final Pool<Kryo> kryoPool = new Pool<>(true, false, 32) {
         protected Kryo create() {
             Kryo kryo = new Kryo();
             kryo.setRegistrationRequired(false);
@@ -32,13 +33,13 @@ public final class KryoSerializer {
         }
     };
 
-    private static final Pool<Output> outputPool = new Pool<Output>(true, false, 32) {
+    private static final Pool<Output> outputPool = new Pool<>(true, false, 32) {
         protected Output create() {
             return new Output(1024, -1);
         }
     };
 
-    private static final Pool<Input> inputPool = new Pool<Input>(true, false, 32) {
+    private static final Pool<Input> inputPool = new Pool<>(true, false, 32) {
         protected Input create() {
             return new Input();
         }

@@ -73,7 +73,7 @@ public class SpawnUtil {
     }
 
     private Location fallbackWorldSpawn() {
-        World primaryWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+        World primaryWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().getFirst();
         if (primaryWorld == null) {
             return null;
         }

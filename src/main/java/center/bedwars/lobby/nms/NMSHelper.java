@@ -54,7 +54,6 @@ public class NMSHelper {
     }
 
     @Deprecated
-    @SuppressWarnings("unchecked")
     public static void addPacketListener(Player player, String listenerName, BiConsumer<Player, Packet<?>> listener) {
         NettyManager.listenBoth(player, listenerName, (Class<Packet<?>>) (Class<?>) Packet.class, listener);
     }

@@ -30,16 +30,14 @@ public class ChunkSnapshotSyncHandler implements ISyncHandler {
         try {
             ChunkData chunkData = KryoSerializer.deserialize(event.getData(), ChunkData.class);
 
-            chunkAPI.getChunkAtAsync(Bukkit.getWorld("world"), chunkData.chunkX, chunkData.chunkZ, true, true, chunk -> {
-                Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-                    try {
-                        restoreChunkFromData(chunk, chunkData.snapshotData);
-                        chunkAPI.refreshChunk(chunk);
-                    } catch (Exception e) {
-                        Lobby.getINSTANCE().getLogger().warning("Failed to restore chunk: " + e.getMessage());
-                    }
-                });
-            });
+            chunkAPI.getChunkAtAsync(Bukkit.getWorld("world"), chunkData.chunkX, chunkData.chunkZ, true, true, chunk -> Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+                try {
+                    restoreChunkFromData(chunk, chunkData.snapshotData);
+                    chunkAPI.refreshChunk(chunk);
+                } catch (Exception e) {
+                    Lobby.getINSTANCE().getLogger().warning("Failed to restore chunk: " + e.getMessage());
+                }
+            }));
         } catch (Exception e) {
             e.printStackTrace();
         }

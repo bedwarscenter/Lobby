@@ -18,6 +18,7 @@ import org.bukkit.entity.Player;
 import java.util.*;
 import java.util.concurrent.*;
 
+@SuppressWarnings("unused")
 public final class EntityPlayerSyncManager extends Manager {
 
     private static final String REDIS_CHANNEL = "bwl:ep";
@@ -114,7 +115,6 @@ public final class EntityPlayerSyncManager extends Manager {
 
     private void onRedis(byte[] raw) {
         try {
-            @SuppressWarnings("unchecked")
             List<EntitySyncData> batch = (List<EntitySyncData>) KryoSerializer.deserialize(raw);
 
             for (EntitySyncData data : batch) {
@@ -188,9 +188,7 @@ public final class EntityPlayerSyncManager extends Manager {
 
     public void handlePlayerJoin(Player p) {
         cache.put(p.getUniqueId(), new CachedState(p.getLocation(), false, false, (byte) 0));
-        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
-            entities.values().forEach(re -> re.spawn(p));
-        }, 15L);
+        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> entities.values().forEach(re -> re.spawn(p)), 15L);
     }
 
     public void handlePlayerQuit(Player p) {
@@ -202,8 +200,7 @@ public final class EntityPlayerSyncManager extends Manager {
         if (!c.loc.getWorld().equals(now.getWorld())) return true;
         if (c.loc.distanceSquared(now) > POS_THRESHOLD * POS_THRESHOLD) return true;
         if (Math.abs(c.loc.getYaw() - now.getYaw()) > ROT_THRESHOLD) return true;
-        if (Math.abs(c.loc.getPitch() - now.getPitch()) > ROT_THRESHOLD) return true;
-        return false;
+        return Math.abs(c.loc.getPitch() - now.getPitch()) > ROT_THRESHOLD;
     }
 
     private void cleanup() {
@@ -231,16 +228,11 @@ public final class EntityPlayerSyncManager extends Manager {
     }
 
     private static final class RemoteEntity {
-        private final UUID id;
-        private final String name;
-        private final GameProfile profile;
         private final EntityPlayer nms;
         long lastUpdate = System.currentTimeMillis();
 
         RemoteEntity(UUID id, String name, String texture, String signature, Location loc) {
-            this.id = id;
-            this.name = name;
-            this.profile = new GameProfile(id, name);
+            GameProfile profile = new GameProfile(id, name);
 
             if (!texture.isEmpty()) {
                 profile.getProperties().put("textures", new Property("textures", texture, signature));
@@ -327,6 +319,10 @@ public final class EntityPlayerSyncManager extends Manager {
                 c.sendPacket(d);
                 c.sendPacket(r);
             }
+        }
+
+        void sex() {
+            // to do: make it twerk like micheal jackson did to stephen hawking
         }
     }
 }
