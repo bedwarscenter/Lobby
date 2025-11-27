@@ -10,6 +10,8 @@ import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.support.ConnectionPoolSupport;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import lombok.Getter;
+import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;

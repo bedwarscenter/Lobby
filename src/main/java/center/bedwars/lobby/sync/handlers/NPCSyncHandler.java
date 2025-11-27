@@ -33,7 +33,7 @@ public class NPCSyncHandler implements ISyncHandler {
                     if (event.getType() == SyncEventType.NPC_CREATE) {
                         handleCreate(npcData);
                     } else if (event.getType() == SyncEventType.NPC_DELETE) {
-                        handleDelete(npcData.npcId);
+                        handleDelete(npcData.getNpcIdAsString());
                     } else if (event.getType() == SyncEventType.NPC_UPDATE) {
                         handleUpdate(npcData);
                     }
@@ -50,7 +50,7 @@ public class NPCSyncHandler implements ISyncHandler {
         Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());
         if (loc == null) return;
 
-        NPC existingNpc = findNPC(data.npcId);
+        NPC existingNpc = findNPC(data.getNpcIdAsString());
         if (existingNpc != null) {
             existingNpc.destroy();
         }
@@ -71,7 +71,7 @@ public class NPCSyncHandler implements ISyncHandler {
     }
 
     private void handleUpdate(NPCData data) {
-        NPC npc = findNPC(data.npcId);
+        NPC npc = findNPC(data.getNpcIdAsString());
         if (npc == null) return;
 
         Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());

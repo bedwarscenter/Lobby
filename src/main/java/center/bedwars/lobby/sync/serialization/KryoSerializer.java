@@ -19,8 +19,6 @@ public final class KryoSerializer {
             kryo.setRegistrationRequired(false);
             kryo.setReferences(false);
 
-            kryo.register(PlayerSyncData.class);
-            kryo.register(EntitySyncData.class);
             kryo.register(LocationData.class);
             kryo.register(BlockData.class);
             kryo.register(NPCData.class);
@@ -88,14 +86,14 @@ public final class KryoSerializer {
     }
 
     public static class LocationData {
-        public String world;
+        public byte worldId;
         public double x, y, z;
         public float yaw, pitch;
 
         public LocationData() {}
 
-        public LocationData(String world, double x, double y, double z, float yaw, float pitch) {
-            this.world = world;
+        public LocationData(byte worldId, double x, double y, double z, float yaw, float pitch) {
+            this.worldId = worldId;
             this.x = x;
             this.y = y;
             this.z = z;
@@ -105,7 +103,7 @@ public final class KryoSerializer {
 
         public LocationData(Location loc) {
             if (loc != null && loc.getWorld() != null) {
-                this.world = loc.getWorld().getName();
+                this.worldId = getWorldId(loc.getWorld().getName());
                 this.x = loc.getX();
                 this.y = loc.getY();
                 this.z = loc.getZ();
@@ -115,77 +113,24 @@ public final class KryoSerializer {
         }
 
         public Location toLocation(org.bukkit.Server server) {
-            if (world == null) return null;
-            return new Location(server.getWorld(world), x, y, z, yaw, pitch);
-        }
-    }
-
-    public static class PlayerSyncData {
-        public String lobbyId;
-        public String action;
-        public String uuid;
-        public String name;
-        public String texture;
-        public String signature;
-
-        public PlayerSyncData() {}
-
-        public PlayerSyncData(String lobbyId, String action, String uuid, String name, String texture, String signature) {
-            this.lobbyId = lobbyId;
-            this.action = action;
-            this.uuid = uuid;
-            this.name = name;
-            this.texture = texture;
-            this.signature = signature;
-        }
-    }
-
-    public static class EntitySyncData {
-        public String lobbyId;
-        public String uuid;
-        public String name;
-        public String texture;
-        public String signature;
-        public LocationData location;
-        public boolean sneaking;
-        public boolean sprinting;
-        public int heldSlot;
-        public byte swingType;
-
-        public EntitySyncData() {}
-
-        public EntitySyncData(String lobbyId, String uuid, String name, String texture, String signature,
-                              LocationData location, boolean sneaking, boolean sprinting, int heldSlot, byte swingType) {
-            this.lobbyId = lobbyId;
-            this.uuid = uuid;
-            this.name = name;
-            this.texture = texture;
-            this.signature = signature;
-            this.location = location;
-            this.sneaking = sneaking;
-            this.sprinting = sprinting;
-            this.heldSlot = heldSlot;
-            this.swingType = swingType;
+            String worldName = getWorldName(worldId);
+            if (worldName == null) return null;
+            return new Location(server.getWorld(worldName), x, y, z, yaw, pitch);
         }
 
-        public static EntitySyncData fromLocation(String lobbyId, String uuid, String name,
-                                                  String texture, String signature, Location loc,
-                                                  boolean sneaking, boolean sprinting, int heldSlot, byte swingType) {
-            LocationData locData = new LocationData(
-                    loc.getWorld().getName(),
-                    loc.getX(), loc.getY(), loc.getZ(),
-                    loc.getYaw(), loc.getPitch()
-            );
-            return new EntitySyncData(lobbyId, uuid, name, texture, signature, locData, sneaking, sprinting, heldSlot, swingType);
+        private static byte getWorldId(String worldName) {
+            if ("world".equals(worldName)) return 0;
+            if ("world_nether".equals(worldName)) return 1;
+            if ("world_the_end".equals(worldName)) return 2;
+            return (byte) worldName.hashCode();
         }
 
-        public Location toLocation(org.bukkit.Server server) {
-            if (location == null) return null;
-            return new Location(
-                    server.getWorld(location.world),
-                    location.x, location.y, location.z,
-                    location.yaw, location.pitch
-            );
+        private static String getWorldName(byte worldId) {
+            return switch (worldId) {
+                case 1 -> "world_nether";
+                case 2 -> "world_the_end";
+                default -> "world";
+            };
         }
     }
 
@@ -201,10 +146,14 @@ public final class KryoSerializer {
             this.material = mat.name();
             this.data = data;
         }
+
+        public Material getMaterial() {
+            return Material.getMaterial(material);
+        }
     }
 
     public static class NPCData {
-        public String npcId;
+        public short npcId;
         public String name;
         public LocationData location;
         public String texture;
@@ -213,11 +162,19 @@ public final class KryoSerializer {
         public NPCData() {}
 
         public NPCData(String npcId, String name, Location loc, String texture, String signature) {
-            this.npcId = npcId;
+            try {
+                this.npcId = Short.parseShort(npcId);
+            } catch (NumberFormatException e) {
+                this.npcId = (short) npcId.hashCode();
+            }
             this.name = name;
             this.location = new LocationData(loc);
             this.texture = texture != null ? texture : "";
             this.signature = signature != null ? signature : "";
+        }
+
+        public String getNpcIdAsString() {
+            return String.valueOf(npcId);
         }
     }
 
@@ -237,9 +194,10 @@ public final class KryoSerializer {
 
     public static class WorldSyncData {
         public String worldName;
+        public byte worldId;
         public WorldBorderData border;
         public Map<String, String> gameRules;
-        public String difficulty;
+        public String difficulty; // Changed from byte to String
         public boolean pvp;
         public long time;
         public boolean storm;

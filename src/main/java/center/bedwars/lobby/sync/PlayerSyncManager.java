@@ -5,8 +5,8 @@ import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.database.DatabaseManager;
 import center.bedwars.lobby.database.databases.RedisDatabase;
 import center.bedwars.lobby.manager.Manager;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
-import center.bedwars.lobby.sync.serialization.KryoSerializer.PlayerSyncData;
+import center.bedwars.lobby.sync.serialization.PlayerSerializer;
+import center.bedwars.lobby.sync.serialization.PlayerSerializer.*;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import net.minecraft.server.v1_8_R3.*;
@@ -24,7 +24,7 @@ public class PlayerSyncManager extends Manager {
     private static final int HEARTBEAT_INTERVAL_SEC = 3;
     private static final int TIMEOUT_MS = 10000;
 
-    private String lobbyId;
+    private byte lobbyId;
     private RedisDatabase redis;
     private final Map<UUID, RemotePlayer> remotePlayers = new ConcurrentHashMap<>();
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
@@ -32,7 +32,7 @@ public class PlayerSyncManager extends Manager {
 
     @Override
     protected void onLoad() {
-        lobbyId = SettingsConfiguration.LOBBY_ID;
+        this.lobbyId = getLobbyIdAsByte(SettingsConfiguration.LOBBY_ID);
         redis = Lobby.getManagerStorage().getManager(DatabaseManager.class).getRedis();
         running = true;
         setupSubscription();
@@ -54,7 +54,7 @@ public class PlayerSyncManager extends Manager {
         executor.scheduleAtFixedRate(() -> {
             if (!running) return;
             for (Player player : Bukkit.getOnlinePlayers()) {
-                broadcast(player, "H");
+                broadcast(player, PlayerSyncAction.HEARTBEAT);
             }
             cleanup();
         }, HEARTBEAT_INTERVAL_SEC, HEARTBEAT_INTERVAL_SEC, TimeUnit.SECONDS);
@@ -62,22 +62,22 @@ public class PlayerSyncManager extends Manager {
 
     private void processMessage(byte[] raw) {
         try {
-            PlayerSyncData data = KryoSerializer.deserialize(raw, PlayerSyncData.class);
+            PlayerSyncPacket packet = PlayerSerializer.deserialize(raw);
 
-            if (lobbyId.equals(data.lobbyId)) return;
+            if (lobbyId == packet.lobbyId) return;
 
-            UUID id = UUID.fromString(data.uuid);
+            UUID id = packet.playerId;
 
             Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-                switch (data.action) {
-                    case "J":
-                        handleJoin(id, data.name, data.lobbyId, data.texture, data.signature);
+                switch (packet.action) {
+                    case JOIN:
+                        handleJoin(id, packet.name, packet.texture, packet.signature);
                         break;
-                    case "Q":
+                    case QUIT:
                         handleQuit(id);
                         break;
-                    case "H":
-                        handleHeartbeat(id, data.name, data.lobbyId, data.texture, data.signature);
+                    case HEARTBEAT:
+                        handleHeartbeat(id, packet.name, packet.texture, packet.signature);
                         break;
                 }
             });
@@ -86,8 +86,8 @@ public class PlayerSyncManager extends Manager {
         }
     }
 
-    private void handleJoin(UUID id, String name, String lobby, String texture, String signature) {
-        RemotePlayer rp = new RemotePlayer(id, name, lobby, texture, signature);
+    private void handleJoin(UUID id, String name, String texture, String signature) {
+        RemotePlayer rp = new RemotePlayer(id, name, texture, signature);
         remotePlayers.put(id, rp);
         Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
@@ -105,10 +105,10 @@ public class PlayerSyncManager extends Manager {
         });
     }
 
-    private void handleHeartbeat(UUID id, String name, String lobby, String texture, String signature) {
+    private void handleHeartbeat(UUID id, String name, String texture, String signature) {
         RemotePlayer rp = remotePlayers.get(id);
         if (rp == null) {
-            handleJoin(id, name, lobby, texture, signature);
+            handleJoin(id, name, texture, signature);
         } else {
             rp.lastUpdate = System.currentTimeMillis();
         }
@@ -132,7 +132,7 @@ public class PlayerSyncManager extends Manager {
     }
 
     public void handlePlayerJoin(Player player) {
-        broadcast(player, "J");
+        broadcast(player, PlayerSyncAction.JOIN);
         Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
             for (RemotePlayer rp : remotePlayers.values()) {
                 addToTab(player, rp);
@@ -141,10 +141,10 @@ public class PlayerSyncManager extends Manager {
     }
 
     public void handlePlayerQuit(Player player) {
-        broadcast(player, "Q");
+        broadcast(player, PlayerSyncAction.QUIT);
     }
 
-    private void broadcast(Player player, String action) {
+    private void broadcast(Player player, PlayerSyncAction action) {
         CompletableFuture.runAsync(() -> {
             try {
                 CraftPlayer craftPlayer = (CraftPlayer) player;
@@ -159,16 +159,16 @@ public class PlayerSyncManager extends Manager {
                     signature = textureProp.getSignature() != null ? textureProp.getSignature() : "";
                 }
 
-                PlayerSyncData data = new PlayerSyncData(
+                PlayerSyncPacket packet = new PlayerSyncPacket(
                         lobbyId,
                         action,
-                        player.getUniqueId().toString(),
+                        player.getUniqueId(),
                         player.getName(),
                         texture,
                         signature
                 );
 
-                byte[] serialized = KryoSerializer.serialize(data);
+                byte[] serialized = PlayerSerializer.serialize(packet);
                 redis.publish(REDIS_CHANNEL, serialized);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -216,6 +216,16 @@ public class PlayerSyncManager extends Manager {
         } catch (Exception ignored) {}
     }
 
+    private byte getLobbyIdAsByte(String lobbyIdStr) {
+        try {
+            String[] parts = lobbyIdStr.split("-");
+            if (parts.length > 0) {
+                return Byte.parseByte(parts[parts.length - 1]);
+            }
+        } catch (Exception ignored) {}
+        return (byte) lobbyIdStr.hashCode();
+    }
+
     private static final class RemotePlayer {
         private final UUID id;
         private final String name;
@@ -223,7 +233,7 @@ public class PlayerSyncManager extends Manager {
         private final String signature;
         private long lastUpdate;
 
-        RemotePlayer(UUID id, String name, String lobby, String texture, String signature) {
+        RemotePlayer(UUID id, String name, String texture, String signature) {
             this.id = id;
             this.name = name;
             this.texture = texture;
