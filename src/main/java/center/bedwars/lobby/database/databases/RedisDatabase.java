@@ -1,9 +1,15 @@
 package center.bedwars.lobby.database.databases;
 
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
+import io.lettuce.core.pubsub.RedisPubSubAdapter;
+import io.lettuce.core.support.ConnectionPoolSupport;
+import io.lettuce.core.api.async.RedisAsyncCommands;
 import lombok.Getter;
-import redis.clients.jedis.*;
-import redis.clients.jedis.params.SetParams;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -16,8 +22,9 @@ import java.util.logging.Logger;
 public class RedisDatabase {
 
     private final Logger logger;
-    private JedisPool jedisPool;
-    private final Map<String, Thread> subscriptionThreads = new ConcurrentHashMap<>();
+    private RedisClient redisClient;
+    private GenericObjectPool<StatefulRedisConnection<String, String>> connectionPool;
+    private final Map<String, StatefulRedisPubSubConnection<byte[], byte[]>> subscriptions = new ConcurrentHashMap<>();
     private volatile boolean running = false;
 
     public RedisDatabase(Logger logger) {
@@ -26,32 +33,49 @@ public class RedisDatabase {
 
     public void connect() {
         try {
-            JedisPoolConfig config = new JedisPoolConfig();
-            config.setMaxTotal(20);
-            config.setMaxIdle(10);
-            config.setMinIdle(5);
-            config.setTestOnBorrow(true);
-            config.setTestOnReturn(true);
-            config.setTestWhileIdle(true);
-            config.setMinEvictableIdleTime(Duration.ofSeconds(60));
-            config.setTimeBetweenEvictionRuns(Duration.ofSeconds(30));
-            config.setNumTestsPerEvictionRun(3);
-            config.setBlockWhenExhausted(true);
-
             String host = SettingsConfiguration.REDIS.REDIS_HOST;
             int port = SettingsConfiguration.REDIS.REDIS_PORT;
             String password = SettingsConfiguration.REDIS.REDIS_PASSWORD;
             int database = SettingsConfiguration.REDIS.REDIS_DATABASE;
             boolean ssl = SettingsConfiguration.REDIS.REDIS_SSL;
 
-            if (password.isEmpty()) {
-                this.jedisPool = new JedisPool(config, host, port, 2000, ssl);
-            } else {
-                this.jedisPool = new JedisPool(config, host, port, 2000, password, database, ssl);
+            RedisURI.Builder uriBuilder = RedisURI.Builder
+                    .redis(host, port)
+                    .withDatabase(database)
+                    .withTimeout(Duration.ofSeconds(2));
+
+            if (!password.isEmpty()) {
+                uriBuilder.withPassword(password.toCharArray());
             }
 
-            try (Jedis jedis = jedisPool.getResource()) {
-                String response = jedis.ping();
+            if (ssl) {
+                uriBuilder.withSsl(true);
+            }
+
+            RedisURI redisURI = uriBuilder.build();
+            this.redisClient = RedisClient.create(redisURI);
+
+            // Connection pool configuration
+            GenericObjectPoolConfig<StatefulRedisConnection<String, String>> poolConfig = new GenericObjectPoolConfig<>();
+            poolConfig.setMaxTotal(20);
+            poolConfig.setMaxIdle(10);
+            poolConfig.setMinIdle(5);
+            poolConfig.setTestOnBorrow(true);
+            poolConfig.setTestOnReturn(true);
+            poolConfig.setTestWhileIdle(true);
+            poolConfig.setMinEvictableIdleTime(Duration.ofSeconds(60));
+            poolConfig.setTimeBetweenEvictionRuns(Duration.ofSeconds(30));
+            poolConfig.setNumTestsPerEvictionRun(3);
+            poolConfig.setBlockWhenExhausted(true);
+
+            this.connectionPool = ConnectionPoolSupport.createGenericObjectPool(
+                    () -> redisClient.connect(),
+                    poolConfig
+            );
+
+            // Test connection
+            try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
+                String response = connection.sync().ping();
                 logger.info("Redis connection established successfully! Response: " + response);
             }
 
@@ -66,23 +90,44 @@ public class RedisDatabase {
 
     public void disconnect() {
         this.running = false;
-        for (Thread thread : subscriptionThreads.values()) {
-            if (thread != null && thread.isAlive()) {
-                thread.interrupt();
+
+        // Close all subscriptions
+        for (StatefulRedisPubSubConnection<byte[], byte[]> connection : subscriptions.values()) {
+            if (connection != null && connection.isOpen()) {
+                connection.close();
             }
         }
-        subscriptionThreads.clear();
-        if (jedisPool != null && !jedisPool.isClosed()) {
-            jedisPool.close();
-            logger.info("Redis connection closed!");
+        subscriptions.clear();
+
+        // Close connection pool
+        if (connectionPool != null && !connectionPool.isClosed()) {
+            connectionPool.close();
         }
+
+        // Shutdown client
+        if (redisClient != null) {
+            redisClient.shutdown();
+        }
+
+        logger.info("Redis connection closed!");
     }
 
     public void publish(String channel, byte[] message) {
-        if (!running || jedisPool == null) return;
-        try (Jedis jedis = jedisPool.getResource()) {
-            long receivers = jedis.publish(channel.getBytes(StandardCharsets.UTF_8), message);
-            logger.info("Published to channel " + channel + ", received by " + receivers + " subscribers");
+        if (!running || connectionPool == null) return;
+
+        try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
+            StatefulRedisPubSubConnection<byte[], byte[]> pubSubConnection =
+                    redisClient.connectPubSub(io.lettuce.core.codec.ByteArrayCodec.INSTANCE);
+
+            try {
+                Long receivers = pubSubConnection.sync().publish(
+                        channel.getBytes(StandardCharsets.UTF_8),
+                        message
+                );
+                logger.info("Published to channel " + channel + ", received by " + receivers + " subscribers");
+            } finally {
+                pubSubConnection.close();
+            }
         } catch (Exception e) {
             logger.severe("Failed to publish message to Redis channel " + channel + ": " + e.getMessage());
             e.printStackTrace();
@@ -91,40 +136,42 @@ public class RedisDatabase {
 
     public void subscribe(String channel, Consumer<byte[]> messageHandler) {
         if (!running) return;
-        Thread t = new Thread(() -> {
-            while (running) {
-                try (Jedis jedis = jedisPool.getResource()) {
-                    jedis.subscribe(new BinaryJedisPubSub() {
-                        @Override
-                        public void onSubscribe(byte[] ch, int subscribedChannels) {
-                            logger.info("Subscribed to channel: " + new String(ch, StandardCharsets.UTF_8));
-                        }
 
-                        @Override
-                        public void onUnsubscribe(byte[] ch, int subscribedChannels) {
-                            logger.info("Unsubscribed from channel: " + new String(ch, StandardCharsets.UTF_8));
-                        }
+        try {
+            StatefulRedisPubSubConnection<byte[], byte[]> pubSubConnection =
+                    redisClient.connectPubSub(io.lettuce.core.codec.ByteArrayCodec.INSTANCE);
 
-                        @Override
-                        public void onMessage(byte[] ch, byte[] message) {
-                            if (java.util.Arrays.equals(ch, channel.getBytes(StandardCharsets.UTF_8))) {
-                                messageHandler.accept(message);
-                            }
-                        }
-                    }, channel.getBytes(StandardCharsets.UTF_8));
-                } catch (Exception e) {
-                    if (running) try { Thread.sleep(5000); } catch (InterruptedException ie) { break; }
+            pubSubConnection.addListener(new RedisPubSubAdapter<byte[], byte[]>() {
+                @Override
+                public void message(byte[] ch, byte[] message) {
+                    if (java.util.Arrays.equals(ch, channel.getBytes(StandardCharsets.UTF_8))) {
+                        messageHandler.accept(message);
+                    }
                 }
-            }
-        }, "Redis-Subscription-" + channel);
-        t.setDaemon(true);
-        t.start();
-        subscriptionThreads.put(channel, t);
+
+                @Override
+                public void subscribed(byte[] ch, long count) {
+                    logger.info("Subscribed to channel: " + new String(ch, StandardCharsets.UTF_8));
+                }
+
+                @Override
+                public void unsubscribed(byte[] ch, long count) {
+                    logger.info("Unsubscribed from channel: " + new String(ch, StandardCharsets.UTF_8));
+                }
+            });
+
+            pubSubConnection.async().subscribe(channel.getBytes(StandardCharsets.UTF_8));
+            subscriptions.put(channel, pubSubConnection);
+
+        } catch (Exception e) {
+            logger.severe("Failed to subscribe to channel " + channel + ": " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public void set(String key, String value) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            jedis.set(key, value);
+        try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
+            connection.sync().set(key, value);
         } catch (Exception e) {
             logger.severe("Failed to set key in Redis: " + e.getMessage());
             e.printStackTrace();
@@ -132,8 +179,8 @@ public class RedisDatabase {
     }
 
     public void set(String key, String value, int expireSeconds) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            jedis.setex(key, expireSeconds, value);
+        try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
+            connection.sync().setex(key, expireSeconds, value);
         } catch (Exception e) {
             logger.severe("Failed to set key with expiration in Redis: " + e.getMessage());
             e.printStackTrace();
@@ -141,8 +188,8 @@ public class RedisDatabase {
     }
 
     public String get(String key) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            return jedis.get(key);
+        try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
+            return connection.sync().get(key);
         } catch (Exception e) {
             logger.severe("Failed to get key from Redis: " + e.getMessage());
             e.printStackTrace();
@@ -151,8 +198,8 @@ public class RedisDatabase {
     }
 
     public void delete(String key) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            jedis.del(key);
+        try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
+            connection.sync().del(key);
         } catch (Exception e) {
             logger.severe("Failed to delete key from Redis: " + e.getMessage());
             e.printStackTrace();
@@ -160,8 +207,8 @@ public class RedisDatabase {
     }
 
     public boolean exists(String key) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            return jedis.exists(key);
+        try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
+            return connection.sync().exists(key) > 0;
         } catch (Exception e) {
             logger.severe("Failed to check key existence in Redis: " + e.getMessage());
             e.printStackTrace();
@@ -170,12 +217,12 @@ public class RedisDatabase {
     }
 
     public boolean isConnected() {
-        if (jedisPool == null || jedisPool.isClosed()) {
+        if (redisClient == null || connectionPool == null || connectionPool.isClosed()) {
             return false;
         }
 
-        try (Jedis jedis = jedisPool.getResource()) {
-            return "PONG".equals(jedis.ping());
+        try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
+            return "PONG".equals(connection.sync().ping());
         } catch (Exception e) {
             return false;
         }

@@ -5,8 +5,8 @@ import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.database.DatabaseManager;
 import center.bedwars.lobby.database.databases.RedisDatabase;
 import center.bedwars.lobby.manager.Manager;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
-import center.bedwars.lobby.sync.serialization.KryoSerializer.EntitySyncData;
+import center.bedwars.lobby.sync.serialization.EntitySerializer;
+import center.bedwars.lobby.sync.serialization.EntitySerializer.*;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import net.minecraft.server.v1_8_R3.*;
@@ -23,22 +23,23 @@ public final class EntityPlayerSyncManager extends Manager {
 
     private static final String REDIS_CHANNEL = "bwl:ep";
     private static final int UPDATE_MS = 50;
-    private static final double POS_THRESHOLD = 0.05D;
+    private static final double MOVE_THRESHOLD = 0.05D;
+    private static final double TELEPORT_THRESHOLD = 8.0D;
     private static final float ROT_THRESHOLD = 5.0F;
     private static final int TIMEOUT_MS = 120_000;
-    private static final int BATCH_SIZE = 50;
+    private static final int BATCH_SIZE = 100;
 
     private final Map<UUID, RemoteEntity> entities = new ConcurrentHashMap<>();
     private final Map<UUID, CachedState> cache = new ConcurrentHashMap<>();
-    private final BlockingQueue<EntitySyncData> queue = new LinkedBlockingQueue<>(500);
+    private final BlockingQueue<EntityPacket> queue = new LinkedBlockingQueue<>(1000);
     private final ScheduledExecutorService exec = Executors.newScheduledThreadPool(2);
     private RedisDatabase redis;
-    private String lobbyId;
+    private byte lobbyId;
     private volatile boolean running = false;
 
     @Override
     protected void onLoad() {
-        lobbyId = SettingsConfiguration.LOBBY_ID;
+        this.lobbyId = getLobbyIdAsByte(SettingsConfiguration.LOBBY_ID);
         redis = Lobby.getManagerStorage().getManager(DatabaseManager.class).getRedis();
         running = true;
         redis.subscribe(REDIS_CHANNEL, this::onRedis);
@@ -63,91 +64,273 @@ public final class EntityPlayerSyncManager extends Manager {
             CachedState c = cache.get(p.getUniqueId());
             Location loc = p.getLocation();
 
-            if (c != null && !c.force && !significant(c, loc, p)) {
+            if (c == null) {
+                spawnEntity(p, loc);
                 continue;
             }
 
-            CraftPlayer craftPlayer = (CraftPlayer) p;
-            GameProfile profile = craftPlayer.getProfile();
-
-            String texture = "";
-            String signature = "";
-
-            if (profile.getProperties().containsKey("textures")) {
-                Property textureProp = profile.getProperties().get("textures").iterator().next();
-                texture = textureProp.getValue();
-                signature = textureProp.getSignature() != null ? textureProp.getSignature() : "";
+            if (c.needsSpawn) {
+                spawnEntity(p, loc);
+                c.needsSpawn = false;
+                continue;
             }
 
-            EntitySyncData data = EntitySyncData.fromLocation(
-                    lobbyId,
-                    p.getUniqueId().toString(),
-                    p.getName(),
-                    texture,
-                    signature,
-                    loc,
-                    p.isSneaking(),
-                    p.isSprinting(),
-                    p.getInventory().getHeldItemSlot(),
-                    c == null ? (byte) 0 : c.swing
-            );
+            if (c.force) {
+                handleForced(p, c, loc);
+                c.force = false;
+                continue;
+            }
 
-            queue.offer(data);
-            cache.put(p.getUniqueId(), new CachedState(loc, p.isSneaking(), p.isSprinting(), (byte) 0));
+            double distSq = c.loc.distanceSquared(loc);
+            boolean rotChanged = Math.abs(c.loc.getYaw() - loc.getYaw()) > ROT_THRESHOLD ||
+                    Math.abs(c.loc.getPitch() - loc.getPitch()) > ROT_THRESHOLD;
+
+            if (distSq > TELEPORT_THRESHOLD * TELEPORT_THRESHOLD) {
+                teleportEntity(p, loc);
+            } else if (distSq > MOVE_THRESHOLD * MOVE_THRESHOLD || rotChanged) {
+                moveEntity(p, c.loc, loc);
+            }
+
+            if (c.sneak != p.isSneaking()) {
+                sneakEntity(p, p.isSneaking());
+                c.sneak = p.isSneaking();
+            }
+
+            if (c.sprint != p.isSprinting()) {
+                sprintEntity(p, p.isSprinting());
+                c.sprint = p.isSprinting();
+            }
+
+            if (c.swing > 0) {
+                swingEntity(p, c.swing == 1);
+                c.swing = 0;
+            }
+
+            c.loc = loc.clone();
         }
 
-        if (!queue.isEmpty()) {
-            List<EntitySyncData> batch = new ArrayList<>();
-            EntitySyncData data;
+        flushQueue();
+    }
 
-            while ((data = queue.poll()) != null && batch.size() < BATCH_SIZE) {
-                batch.add(data);
-            }
+    private void spawnEntity(Player p, Location loc) {
+        CraftPlayer craftPlayer = (CraftPlayer) p;
+        GameProfile profile = craftPlayer.getProfile();
 
-            try {
-                byte[] serialized = KryoSerializer.serialize(batch);
-                redis.publish(REDIS_CHANNEL, serialized);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        String texture = "";
+        String signature = "";
+
+        if (profile.getProperties().containsKey("textures")) {
+            Property textureProp = profile.getProperties().get("textures").iterator().next();
+            texture = textureProp.getValue();
+            signature = textureProp.getSignature() != null ? textureProp.getSignature() : "";
+        }
+
+        SpawnEntityPacket packet = new SpawnEntityPacket();
+        packet.lobbyId = lobbyId;
+        packet.playerId = p.getUniqueId();
+        packet.name = p.getName();
+        packet.texture = texture;
+        packet.signature = signature;
+        packet.x = loc.getX();
+        packet.y = loc.getY();
+        packet.z = loc.getZ();
+        packet.yaw = loc.getYaw();
+        packet.pitch = loc.getPitch();
+        packet.sneak = p.isSneaking();
+        packet.sprint = p.isSprinting();
+        packet.slot = (byte) p.getInventory().getHeldItemSlot();
+
+        queue.offer(packet);
+        cache.put(p.getUniqueId(), new CachedState(loc, p.isSneaking(), p.isSprinting()));
+    }
+
+    private void moveEntity(Player p, Location from, Location to) {
+        double dx = (to.getX() - from.getX()) * 32.0;
+        double dy = (to.getY() - from.getY()) * 32.0;
+        double dz = (to.getZ() - from.getZ()) * 32.0;
+
+        if (Math.abs(dx) > 127 || Math.abs(dy) > 127 || Math.abs(dz) > 127) {
+            teleportEntity(p, to);
+            return;
+        }
+
+        MoveEntityPacket packet = new MoveEntityPacket();
+        packet.lobbyId = lobbyId;
+        packet.playerId = p.getUniqueId();
+        packet.dx = (byte) dx;
+        packet.dy = (byte) dy;
+        packet.dz = (byte) dz;
+        packet.yaw = (byte) ((to.getYaw() * 256f) / 360f);
+        packet.pitch = (byte) ((to.getPitch() * 256f) / 360f);
+
+        queue.offer(packet);
+    }
+
+    private void teleportEntity(Player p, Location loc) {
+        TeleportEntityPacket packet = new TeleportEntityPacket();
+        packet.lobbyId = lobbyId;
+        packet.playerId = p.getUniqueId();
+        packet.x = loc.getX();
+        packet.y = loc.getY();
+        packet.z = loc.getZ();
+        packet.yaw = loc.getYaw();
+        packet.pitch = loc.getPitch();
+        packet.worldId = 0;
+
+        queue.offer(packet);
+    }
+
+    private void sneakEntity(Player p, boolean sneaking) {
+        SneakEntityPacket packet = new SneakEntityPacket();
+        packet.lobbyId = lobbyId;
+        packet.playerId = p.getUniqueId();
+        packet.sneaking = sneaking;
+
+        queue.offer(packet);
+    }
+
+    private void sprintEntity(Player p, boolean sprinting) {
+        SprintEntityPacket packet = new SprintEntityPacket();
+        packet.lobbyId = lobbyId;
+        packet.playerId = p.getUniqueId();
+        packet.sprinting = sprinting;
+
+        queue.offer(packet);
+    }
+
+    private void swingEntity(Player p, boolean mainHand) {
+        SwingEntityPacket packet = new SwingEntityPacket();
+        packet.lobbyId = lobbyId;
+        packet.playerId = p.getUniqueId();
+        packet.mainHand = mainHand;
+
+        queue.offer(packet);
+    }
+
+    private void slotEntity(Player p, byte slot) {
+        SlotEntityPacket packet = new SlotEntityPacket();
+        packet.lobbyId = lobbyId;
+        packet.playerId = p.getUniqueId();
+        packet.slot = slot;
+
+        queue.offer(packet);
+    }
+
+    private void handleForced(Player p, CachedState c, Location loc) {
+        if (c.swing > 0) {
+            swingEntity(p, c.swing == 1);
+            c.swing = 0;
+        }
+
+        if (c.sneak != p.isSneaking()) {
+            sneakEntity(p, p.isSneaking());
+            c.sneak = p.isSneaking();
+        }
+
+        if (c.sprint != p.isSprinting()) {
+            sprintEntity(p, p.isSprinting());
+            c.sprint = p.isSprinting();
+        }
+    }
+
+    private void flushQueue() {
+        if (queue.isEmpty()) return;
+
+        List<EntityPacket> batch = new ArrayList<>(BATCH_SIZE);
+        EntityPacket packet;
+
+        while ((packet = queue.poll()) != null && batch.size() < BATCH_SIZE) {
+            batch.add(packet);
+        }
+
+        try {
+            byte[] serialized = EntitySerializer.serializeBatch(batch);
+            redis.publish(REDIS_CHANNEL, serialized);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
     private void onRedis(byte[] raw) {
         try {
-            List<EntitySyncData> batch = (List<EntitySyncData>) KryoSerializer.deserialize(raw);
+            List<EntityPacket> batch = EntitySerializer.deserializeBatch(raw);
 
-            for (EntitySyncData data : batch) {
-                if (lobbyId.equals(data.lobbyId)) continue;
+            for (EntityPacket packet : batch) {
+                if (lobbyId == packet.getLobbyId()) continue;
 
-                UUID id = UUID.fromString(data.uuid);
-                Location loc = data.toLocation(Bukkit.getServer());
-
-                if (loc == null) continue;
-
-                Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () ->
-                        handleUpdate(id, data.name, data.texture, data.signature, loc,
-                                data.sneaking, data.sprinting, data.heldSlot, data.swingType)
-                );
+                Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> handlePacket(packet));
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void handleUpdate(UUID id, String name, String texture, String signature,
-                              Location loc, boolean sneak, boolean sprint, int slot, byte swing) {
+    private void handlePacket(EntityPacket packet) {
+        UUID id = packet.getPlayerId();
         RemoteEntity re = entities.get(id);
-        if (re == null) {
-            re = new RemoteEntity(id, name, texture, signature, loc);
-            entities.put(id, re);
-            for (Player viewer : Bukkit.getOnlinePlayers()) {
-                re.spawn(viewer);
-            }
-        }
-        re.update(loc, sneak, sprint, slot);
-        if (swing > 0) {
-            re.swing(swing == 1);
+
+        switch (packet.getType()) {
+            case SPAWN:
+                SpawnEntityPacket spawn = (SpawnEntityPacket) packet;
+                if (re == null) {
+                    re = new RemoteEntity(id, spawn.name, spawn.texture, spawn.signature,
+                            spawn.x, spawn.y, spawn.z, spawn.yaw, spawn.pitch);
+                    entities.put(id, re);
+                    for (Player viewer : Bukkit.getOnlinePlayers()) {
+                        re.spawn(viewer);
+                    }
+                }
+                re.updateMetadata(spawn.sneak, spawn.sprint, spawn.slot);
+                break;
+
+            case MOVE:
+                if (re != null) {
+                    MoveEntityPacket move = (MoveEntityPacket) packet;
+                    re.move(move.dx, move.dy, move.dz, move.yaw, move.pitch);
+                }
+                break;
+
+            case TELEPORT:
+                if (re != null) {
+                    TeleportEntityPacket tp = (TeleportEntityPacket) packet;
+                    re.teleport(tp.x, tp.y, tp.z, tp.yaw, tp.pitch);
+                }
+                break;
+
+            case SNEAK:
+                if (re != null) {
+                    SneakEntityPacket sneak = (SneakEntityPacket) packet;
+                    re.setSneak(sneak.sneaking);
+                }
+                break;
+
+            case SPRINT:
+                if (re != null) {
+                    SprintEntityPacket sprint = (SprintEntityPacket) packet;
+                    re.setSprint(sprint.sprinting);
+                }
+                break;
+
+            case SWING:
+                if (re != null) {
+                    SwingEntityPacket swing = (SwingEntityPacket) packet;
+                    re.swing(swing.mainHand);
+                }
+                break;
+
+            case SLOT:
+                if (re != null) {
+                    SlotEntityPacket slot = (SlotEntityPacket) packet;
+                    re.setSlot(slot.slot);
+                }
+                break;
+
+            case DESPAWN:
+                if (re != null) {
+                    re.destroy();
+                    entities.remove(id);
+                }
+                break;
         }
     }
 
@@ -180,27 +363,24 @@ public final class EntityPlayerSyncManager extends Manager {
     }
 
     public void handleHeldSlotChange(Player p, int slot) {
-        CachedState c = cache.get(p.getUniqueId());
-        if (c != null) {
-            c.force = true;
-        }
+        slotEntity(p, (byte) slot);
     }
 
     public void handlePlayerJoin(Player p) {
-        cache.put(p.getUniqueId(), new CachedState(p.getLocation(), false, false, (byte) 0));
-        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> entities.values().forEach(re -> re.spawn(p)), 15L);
+        CachedState state = new CachedState(p.getLocation(), false, false);
+        state.needsSpawn = true;
+        cache.put(p.getUniqueId(), state);
+        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () ->
+                entities.values().forEach(re -> re.spawn(p)), 15L);
     }
 
     public void handlePlayerQuit(Player p) {
         cache.remove(p.getUniqueId());
-    }
 
-    private boolean significant(CachedState c, Location now, Player p) {
-        if (c.sneak != p.isSneaking() || c.sprint != p.isSprinting()) return true;
-        if (!c.loc.getWorld().equals(now.getWorld())) return true;
-        if (c.loc.distanceSquared(now) > POS_THRESHOLD * POS_THRESHOLD) return true;
-        if (Math.abs(c.loc.getYaw() - now.getYaw()) > ROT_THRESHOLD) return true;
-        return Math.abs(c.loc.getPitch() - now.getPitch()) > ROT_THRESHOLD;
+        DespawnEntityPacket packet = new DespawnEntityPacket();
+        packet.lobbyId = lobbyId;
+        packet.playerId = p.getUniqueId();
+        queue.offer(packet);
     }
 
     private void cleanup() {
@@ -214,24 +394,41 @@ public final class EntityPlayerSyncManager extends Manager {
         });
     }
 
+    private byte getLobbyIdAsByte(String lobbyIdStr) {
+        try {
+            String[] parts = lobbyIdStr.split("-");
+            if (parts.length > 0) {
+                return Byte.parseByte(parts[parts.length - 1]);
+            }
+        } catch (Exception ignored) {}
+        return (byte) lobbyIdStr.hashCode();
+    }
+
     private static final class CachedState {
-        final Location loc;
+        Location loc;
         boolean sneak, sprint;
         byte swing;
         boolean force;
-        CachedState(Location l, boolean s1, boolean s2, byte sw) {
+        boolean needsSpawn;
+
+        CachedState(Location l, boolean s1, boolean s2) {
             this.loc = l.clone();
             this.sneak = s1;
             this.sprint = s2;
-            this.swing = sw;
+            this.swing = 0;
         }
     }
 
     private static final class RemoteEntity {
         private final EntityPlayer nms;
+        private double x, y, z;
+        private float yaw, pitch;
+        private boolean sneak, sprint;
+        private byte slot;
         long lastUpdate = System.currentTimeMillis();
 
-        RemoteEntity(UUID id, String name, String texture, String signature, Location loc) {
+        RemoteEntity(UUID id, String name, String texture, String signature,
+                     double x, double y, double z, float yaw, float pitch) {
             GameProfile profile = new GameProfile(id, name);
 
             if (!texture.isEmpty()) {
@@ -241,40 +438,90 @@ public final class EntityPlayerSyncManager extends Manager {
             MinecraftServer srv = MinecraftServer.getServer();
             WorldServer ws = srv.getWorldServer(0);
             this.nms = new EntityPlayer(srv, ws, profile, new PlayerInteractManager(ws));
-            nms.setLocation(loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.yaw = yaw;
+            this.pitch = pitch;
+
+            nms.setLocation(x, y, z, yaw, pitch);
         }
 
-        void update(Location loc, boolean sneak, boolean sprint, int slot) {
+        void move(byte dx, byte dy, byte dz, byte yaw, byte pitch) {
             this.lastUpdate = System.currentTimeMillis();
 
-            double dx = (loc.getX() * 32 - nms.locX * 32) * 128;
-            double dy = (loc.getY() * 32 - nms.locY * 32) * 128;
-            double dz = (loc.getZ() * 32 - nms.locZ * 32) * 128;
-            byte yaw = (byte) ((loc.getYaw() * 256f) / 360f);
-            byte pitch = (byte) ((loc.getPitch() * 256f) / 360f);
+            this.x += dx / 32.0;
+            this.y += dy / 32.0;
+            this.z += dz / 32.0;
+            this.yaw = (yaw * 360f) / 256f;
+            this.pitch = (pitch * 360f) / 256f;
+
+            PacketPlayOutEntity.PacketPlayOutRelEntityMoveLook pkt =
+                    new PacketPlayOutEntity.PacketPlayOutRelEntityMoveLook(
+                            nms.getId(), dx, dy, dz, yaw, pitch, nms.onGround);
 
             for (Player viewer : Bukkit.getOnlinePlayers()) {
                 PlayerConnection conn = ((CraftPlayer) viewer).getHandle().playerConnection;
-
-                if (Math.abs(dx) > 127 || Math.abs(dy) > 127 || Math.abs(dz) > 127) {
-                    conn.sendPacket(new PacketPlayOutEntityTeleport(
-                            nms.getId(),
-                            MathHelper.floor(loc.getX() * 32),
-                            MathHelper.floor(loc.getY() * 32),
-                            MathHelper.floor(loc.getZ() * 32),
-                            yaw, pitch, nms.onGround
-                    ));
-                } else {
-                    conn.sendPacket(new PacketPlayOutEntity.PacketPlayOutRelEntityMoveLook(
-                            nms.getId(),
-                            (byte) dx, (byte) dy, (byte) dz,
-                            yaw, pitch, nms.onGround
-                    ));
-                }
+                conn.sendPacket(pkt);
                 conn.sendPacket(new PacketPlayOutEntityHeadRotation(nms, yaw));
             }
 
-            nms.setLocation(loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+            nms.setLocation(this.x, this.y, this.z, this.yaw, this.pitch);
+        }
+
+        void teleport(double x, double y, double z, float yaw, float pitch) {
+            this.lastUpdate = System.currentTimeMillis();
+
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.yaw = yaw;
+            this.pitch = pitch;
+
+            byte yawByte = (byte) ((yaw * 256f) / 360f);
+            byte pitchByte = (byte) ((pitch * 256f) / 360f);
+
+            PacketPlayOutEntityTeleport pkt = new PacketPlayOutEntityTeleport(
+                    nms.getId(),
+                    MathHelper.floor(x * 32),
+                    MathHelper.floor(y * 32),
+                    MathHelper.floor(z * 32),
+                    yawByte, pitchByte, nms.onGround
+            );
+
+            for (Player viewer : Bukkit.getOnlinePlayers()) {
+                PlayerConnection conn = ((CraftPlayer) viewer).getHandle().playerConnection;
+                conn.sendPacket(pkt);
+                conn.sendPacket(new PacketPlayOutEntityHeadRotation(nms, yawByte));
+            }
+
+            nms.setLocation(x, y, z, yaw, pitch);
+        }
+
+        void setSneak(boolean sneak) {
+            this.lastUpdate = System.currentTimeMillis();
+            this.sneak = sneak;
+            updateMetadata(sneak, this.sprint, this.slot);
+        }
+
+        void setSprint(boolean sprint) {
+            this.lastUpdate = System.currentTimeMillis();
+            this.sprint = sprint;
+            updateMetadata(this.sneak, sprint, this.slot);
+        }
+
+        void setSlot(byte slot) {
+            this.lastUpdate = System.currentTimeMillis();
+            this.slot = slot;
+            nms.inventory.itemInHandIndex = slot;
+        }
+
+        void updateMetadata(boolean sneak, boolean sprint, byte slot) {
+            this.sneak = sneak;
+            this.sprint = sprint;
+            this.slot = slot;
+
             nms.inventory.itemInHandIndex = slot;
 
             DataWatcher dw = nms.getDataWatcher();
@@ -290,6 +537,7 @@ public final class EntityPlayerSyncManager extends Manager {
         }
 
         void swing(boolean mainHand) {
+            this.lastUpdate = System.currentTimeMillis();
             PacketPlayOutAnimation pkt = new PacketPlayOutAnimation(nms, mainHand ? 0 : 3);
             for (Player viewer : Bukkit.getOnlinePlayers()) {
                 ((CraftPlayer) viewer).getHandle().playerConnection.sendPacket(pkt);
@@ -319,10 +567,6 @@ public final class EntityPlayerSyncManager extends Manager {
                 c.sendPacket(d);
                 c.sendPacket(r);
             }
-        }
-
-        void sex() {
-            // to do: make it twerk like micheal jackson did to stephen hawking
         }
     }
 }

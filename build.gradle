@@ -24,7 +24,8 @@ dependencies {
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
 
     implementation("com.esotericsoftware:kryo:${project.findProperty("kryoVersion")}")
-    implementation("redis.clients:jedis:${project.findProperty("jedisVersion")}")
+    implementation("io.lettuce:lettuce-core:${project.findProperty("lettuceVersion")}")
+    implementation("org.apache.commons:commons-pool2:${project.findProperty("commonsPool2Version")}")
     implementation("org.mongodb:mongodb-driver-sync:${project.findProperty("mongoDriverVersion")}")
     implementation("net.j4c0b3y.CommandAPI:bukkit:${project.findProperty("commandApiVersion")}")
     implementation("net.j4c0b3y:MenuAPI-core:${project.findProperty("menuApiVersion")}")
