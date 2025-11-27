@@ -10,7 +10,7 @@ public class FullSyncHandler implements ISyncHandler {
     @Override
     public void handle(SyncEvent event) {
         Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-            for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+            for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
                 sendTitle(p, "&b&lCHANGING INSTANCE", "&7Please wait...", 10, 40, 10);
                 p.playSound(p.getLocation(), org.bukkit.Sound.PORTAL_TRAVEL, 0.5f, 1.0f);
             }
@@ -18,7 +18,7 @@ public class FullSyncHandler implements ISyncHandler {
 
         Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
             ParkourManager pm = Lobby.getManagerStorage().getManager(ParkourManager.class);
-            for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+            for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
                 pm.leaveParkour(p, false);
                 org.bukkit.Location spawn = p.getWorld().getSpawnLocation().clone().add(0, 200, 0);
                 p.teleport(spawn);
@@ -27,17 +27,17 @@ public class FullSyncHandler implements ISyncHandler {
         }, 20L);
 
         Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
-            for (org.bukkit.Chunk chunk : org.bukkit.Bukkit.getWorld("world").getLoadedChunks()) {
+            for (org.bukkit.Chunk chunk : Bukkit.getWorld("world").getLoadedChunks()) {
                 chunk.unload(true);
             }
             Lobby.getManagerStorage().getManager(ParkourManager.class).refreshParkours();
-            for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+            for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
                 sendActionBar(p, "&a&lInstance loaded!");
             }
         }, 40L);
 
         Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
-            for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+            for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
                 p.teleport(p.getWorld().getSpawnLocation());
                 p.setFallDistance(0);
                 sendTitle(p, "&a&lINSTANCE UPDATED", "&7Welcome back!", 10, 30, 10);

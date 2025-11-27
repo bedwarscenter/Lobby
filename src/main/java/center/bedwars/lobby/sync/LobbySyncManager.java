@@ -5,7 +5,7 @@ import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.database.DatabaseManager;
 import center.bedwars.lobby.manager.Manager;
 import center.bedwars.lobby.sync.handlers.*;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
+import center.bedwars.lobby.sync.serialization.Serializer;
 import lombok.Getter;
 import org.bson.Document;
 
@@ -85,7 +85,7 @@ public class LobbySyncManager extends Manager {
 
     private void processEvent(byte[] raw) {
         try {
-            SyncEvent event = KryoSerializer.deserialize(raw, SyncEvent.class);
+            SyncEvent event = Serializer.deserialize(raw, SyncEvent.class);
             if (event.isFromSameLobby(lobbyId)) return;
             if (!eventQueue.offer(event)) {
                 eventQueue.poll();
@@ -101,7 +101,7 @@ public class LobbySyncManager extends Manager {
         CompletableFuture.runAsync(() -> {
             try {
                 SyncEvent event = new SyncEvent(lobbyId, type, data);
-                byte[] serialized = KryoSerializer.serialize(event);
+                byte[] serialized = Serializer.serialize(event);
                 redis.publish(REDIS_CHANNEL, serialized);
 
                 executor.schedule(() -> {

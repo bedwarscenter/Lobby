@@ -2,8 +2,7 @@ package center.bedwars.lobby.sync.handlers;
 
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.SyncEvent;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
-import center.bedwars.lobby.sync.serialization.KryoSerializer.WorldSyncData;
+import center.bedwars.lobby.sync.serialization.Serializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Difficulty;
 import org.bukkit.World;
@@ -14,42 +13,42 @@ public class WorldSyncHandler implements ISyncHandler {
     @Override
     public void handle(SyncEvent event) {
         try {
-            WorldSyncData data = KryoSerializer.deserialize(event.getData(), WorldSyncData.class);
+            Serializer.WorldSyncData data = Serializer.deserialize(event.getData(), Serializer.WorldSyncData.class);
             World world = Bukkit.getWorld(data.worldName);
             if (world == null) return;
 
             Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-                if (data.border != null) {
-                    applyBorder(world, data.border);
-                }
-
-                if (data.gameRules != null) {
-                    for (java.util.Map.Entry<String, String> entry : data.gameRules.entrySet()) {
-                        world.setGameRuleValue(entry.getKey(), entry.getValue());
+                try {
+                    if (data.border != null) {
+                        WorldBorder border = world.getWorldBorder();
+                        border.setCenter(data.border.centerX, data.border.centerZ);
+                        border.setSize(data.border.size);
+                        border.setDamageAmount(data.border.damageAmount);
+                        border.setDamageBuffer(data.border.damageBuffer);
+                        border.setWarningDistance(data.border.warningDistance);
+                        border.setWarningTime(data.border.warningTime);
                     }
-                }
 
-                if (data.difficulty != null) {
-                    world.setDifficulty(Difficulty.valueOf(data.difficulty));
-                }
+                    if (data.gameRules != null) {
+                        for (java.util.Map.Entry<String, String> entry : data.gameRules.entrySet()) {
+                            world.setGameRuleValue(entry.getKey(), entry.getValue());
+                        }
+                    }
 
-                world.setPVP(data.pvp);
-                world.setTime(data.time);
-                world.setStorm(data.storm);
-                world.setThundering(data.thundering);
+                    if (data.difficulty != null) {
+                        world.setDifficulty(Difficulty.valueOf(data.difficulty));
+                    }
+
+                    world.setPVP(data.pvp);
+                    world.setTime(data.time);
+                    world.setStorm(data.storm);
+                    world.setThundering(data.thundering);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             });
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private void applyBorder(World world, center.bedwars.lobby.sync.serialization.KryoSerializer.WorldBorderData data) {
-        WorldBorder border = world.getWorldBorder();
-        border.setCenter(data.centerX, data.centerZ);
-        border.setSize(data.size);
-        border.setDamageAmount(data.damageAmount);
-        border.setDamageBuffer(data.damageBuffer);
-        border.setWarningDistance(data.warningDistance);
-        border.setWarningTime(data.warningTime);
     }
 }

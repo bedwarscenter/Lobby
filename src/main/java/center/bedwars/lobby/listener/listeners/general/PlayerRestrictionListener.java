@@ -74,7 +74,7 @@ public class PlayerRestrictionListener implements Listener {
             return;
         }
 
-        NMSHelper.listenIncomingPacket(
+        NMSHelper.listenIncoming(
                 player,
                 INTERACTION_HANDLER,
                 PacketPlayInBlockPlace.class,

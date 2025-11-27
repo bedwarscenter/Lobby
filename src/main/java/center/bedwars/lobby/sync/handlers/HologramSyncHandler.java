@@ -3,8 +3,7 @@ package center.bedwars.lobby.sync.handlers;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.SyncEvent;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
-import center.bedwars.lobby.sync.serialization.KryoSerializer.HologramData;
+import center.bedwars.lobby.sync.serialization.Serializer;
 import eu.decentsoftware.holograms.api.DHAPI;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
 import org.bukkit.Bukkit;
@@ -17,7 +16,7 @@ public class HologramSyncHandler implements ISyncHandler {
     @Override
     public void handle(SyncEvent event) {
         try {
-            HologramData hologramData = KryoSerializer.deserialize(event.getData(), HologramData.class);
+            Serializer.HologramData hologramData = Serializer.deserialize(event.getData(), Serializer.HologramData.class);
 
             Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
                 try {
@@ -37,13 +36,13 @@ public class HologramSyncHandler implements ISyncHandler {
         }
     }
 
-    private void handleCreate(HologramData data) {
+    private void handleCreate(Serializer.HologramData data) {
         Hologram existing = DHAPI.getHologram(data.hologramId);
         if (existing != null) {
             DHAPI.removeHologram(data.hologramId);
         }
 
-        Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());
+        Location loc = data.location.toLocation(Bukkit.getServer());
         if (loc == null) return;
 
         Hologram hologram = DHAPI.createHologram(data.hologramId, loc);
@@ -57,14 +56,14 @@ public class HologramSyncHandler implements ISyncHandler {
         }
     }
 
-    private void handleUpdate(HologramData data) {
+    private void handleUpdate(Serializer.HologramData data) {
         Hologram hologram = DHAPI.getHologram(data.hologramId);
         if (hologram == null) {
             handleCreate(data);
             return;
         }
 
-        Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());
+        Location loc = data.location.toLocation(Bukkit.getServer());
         if (loc != null) {
             DHAPI.moveHologram(hologram, loc);
         }

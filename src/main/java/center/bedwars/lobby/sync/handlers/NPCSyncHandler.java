@@ -3,8 +3,7 @@ package center.bedwars.lobby.sync.handlers;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.SyncEvent;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
-import center.bedwars.lobby.sync.serialization.KryoSerializer.NPCData;
+import center.bedwars.lobby.sync.serialization.Serializer;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCRegistry;
 import net.citizensnpcs.trait.SkinTrait;
@@ -26,14 +25,14 @@ public class NPCSyncHandler implements ISyncHandler {
     @Override
     public void handle(SyncEvent event) {
         try {
-            NPCData npcData = KryoSerializer.deserialize(event.getData(), NPCData.class);
+            Serializer.NPCData npcData = Serializer.deserialize(event.getData(), Serializer.NPCData.class);
 
             Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
                 try {
                     if (event.getType() == SyncEventType.NPC_CREATE) {
                         handleCreate(npcData);
                     } else if (event.getType() == SyncEventType.NPC_DELETE) {
-                        handleDelete(npcData.getNpcIdAsString());
+                        handleDelete(npcData.npcId);
                     } else if (event.getType() == SyncEventType.NPC_UPDATE) {
                         handleUpdate(npcData);
                     }
@@ -46,11 +45,11 @@ public class NPCSyncHandler implements ISyncHandler {
         }
     }
 
-    private void handleCreate(NPCData data) {
-        Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());
+    private void handleCreate(Serializer.NPCData data) {
+        Location loc = data.location.toLocation(Bukkit.getServer());
         if (loc == null) return;
 
-        NPC existingNpc = findNPC(data.getNpcIdAsString());
+        NPC existingNpc = findNPC(data.npcId);
         if (existingNpc != null) {
             existingNpc.destroy();
         }
@@ -63,18 +62,18 @@ public class NPCSyncHandler implements ISyncHandler {
         }
     }
 
-    private void handleDelete(String npcId) {
+    private void handleDelete(short npcId) {
         NPC npc = findNPC(npcId);
         if (npc != null) {
             npc.destroy();
         }
     }
 
-    private void handleUpdate(NPCData data) {
-        NPC npc = findNPC(data.getNpcIdAsString());
+    private void handleUpdate(Serializer.NPCData data) {
+        NPC npc = findNPC(data.npcId);
         if (npc == null) return;
 
-        Location loc = data.location.toLocation(Lobby.getINSTANCE().getServer());
+        Location loc = data.location.toLocation(Bukkit.getServer());
         if (loc != null) {
             if (npc.isSpawned()) {
                 npc.teleport(loc, null);
@@ -95,15 +94,13 @@ public class NPCSyncHandler implements ISyncHandler {
         skin.setSkinPersistent(npc.getUniqueId().toString(), signature, texture);
     }
 
-    private NPC findNPC(String npcId) {
-        try {
-            int id = Integer.parseInt(npcId);
-            return registry.getById(id);
-        } catch (NumberFormatException e) {
-            for (NPC npc : registry) {
-                if (String.valueOf(npc.getId()).equals(npcId)) {
-                    return npc;
-                }
+    private NPC findNPC(short npcId) {
+        NPC found = registry.getById(npcId);
+        if (found != null) return found;
+
+        for (NPC npc : registry) {
+            if (npc.getId() == npcId) {
+                return npc;
             }
         }
         return null;

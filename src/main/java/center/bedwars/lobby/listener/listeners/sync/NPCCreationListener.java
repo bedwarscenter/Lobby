@@ -3,8 +3,8 @@ package center.bedwars.lobby.listener.listeners.sync;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
-import center.bedwars.lobby.sync.serialization.KryoSerializer.NPCData;
+import center.bedwars.lobby.sync.serialization.Serializer;
+import center.bedwars.lobby.sync.serialization.Serializer.NPCData;
 import net.citizensnpcs.api.event.NPCCreateEvent;
 import net.citizensnpcs.api.event.NPCRemoveEvent;
 import net.citizensnpcs.api.npc.NPC;
@@ -42,7 +42,7 @@ public class NPCCreationListener implements Listener {
                 signature
         );
 
-        byte[] serialized = KryoSerializer.serialize(npcData);
+        byte[] serialized = Serializer.serialize(npcData);
         syncManager.broadcastEvent(SyncEventType.NPC_CREATE, serialized);
     }
 
@@ -50,7 +50,7 @@ public class NPCCreationListener implements Listener {
     public void onNPCRemove(NPCRemoveEvent event) {
         NPC npc = event.getNPC();
         NPCData npcData = new NPCData(String.valueOf(npc.getId()), "", null, "", "");
-        byte[] serialized = KryoSerializer.serialize(npcData);
+        byte[] serialized = Serializer.serialize(npcData);
         syncManager.broadcastEvent(SyncEventType.NPC_DELETE, serialized);
     }
 }

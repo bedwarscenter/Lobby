@@ -3,8 +3,8 @@ package center.bedwars.lobby.listener.listeners.sync;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
-import center.bedwars.lobby.sync.serialization.KryoSerializer.BlockData;
+import center.bedwars.lobby.sync.serialization.Serializer;
+import center.bedwars.lobby.sync.serialization.Serializer.BlockData;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -29,7 +29,7 @@ public class LobbySyncListener implements Listener {
 
         Block block = event.getBlock();
         BlockData blockData = new BlockData(block.getLocation(), block.getType(), block.getData());
-        byte[] serialized = KryoSerializer.serialize(blockData);
+        byte[] serialized = Serializer.serialize(blockData);
         syncManager.broadcastEvent(SyncEventType.BLOCK_PLACE, serialized);
     }
 
@@ -40,7 +40,7 @@ public class LobbySyncListener implements Listener {
 
         Block block = event.getBlock();
         BlockData blockData = new BlockData(block.getLocation(), Material.AIR, (byte) 0);
-        byte[] serialized = KryoSerializer.serialize(blockData);
+        byte[] serialized = Serializer.serialize(blockData);
         syncManager.broadcastEvent(SyncEventType.BLOCK_BREAK, serialized);
     }
 }

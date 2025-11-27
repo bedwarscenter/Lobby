@@ -3,8 +3,8 @@ package center.bedwars.lobby.listener.listeners.sync;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.SyncEventType;
-import center.bedwars.lobby.sync.serialization.KryoSerializer;
-import center.bedwars.lobby.sync.serialization.KryoSerializer.HologramData;
+import center.bedwars.lobby.sync.serialization.Serializer;
+import center.bedwars.lobby.sync.serialization.Serializer.HologramData;
 import eu.decentsoftware.holograms.api.DHAPI;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
 import eu.decentsoftware.holograms.event.DecentHologramsReloadEvent;
@@ -73,7 +73,7 @@ public class HologramCreationListener implements Listener {
                     lines
             );
 
-            byte[] serialized = KryoSerializer.serialize(hologramData);
+            byte[] serialized = Serializer.serialize(hologramData);
             syncManager.broadcastEvent(eventType, serialized);
         } catch (Exception e) {
             Lobby.getINSTANCE().getLogger().warning("Failed to sync hologram " + hologram.getName() + ": " + e.getMessage());
