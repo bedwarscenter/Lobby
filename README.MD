@@ -30,7 +30,7 @@ Lobby core plugin for Bed Wars Center. Simple, usable, and open to additions.
 
 ## Build
 ```bat
-.\gradlew.bat clean build
+.\gradlew.bat clean shadowJar
 ```
 Output: `build\libs\BedWarsLobby-v<version>.jar`
 
