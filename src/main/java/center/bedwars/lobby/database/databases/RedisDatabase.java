@@ -4,11 +4,11 @@ import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
+import io.lettuce.core.resource.ClientResources;
+import io.lettuce.core.resource.DefaultClientResources;
 import io.lettuce.core.support.ConnectionPoolSupport;
-import io.lettuce.core.api.async.RedisAsyncCommands;
 import lombok.Getter;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
@@ -25,6 +25,7 @@ public class RedisDatabase {
 
     private final Logger logger;
     private RedisClient redisClient;
+    private ClientResources clientResources;
     private GenericObjectPool<StatefulRedisConnection<String, String>> connectionPool;
     private final Map<String, StatefulRedisPubSubConnection<byte[], byte[]>> subscriptions = new ConcurrentHashMap<>();
     private volatile boolean running = false;
@@ -44,9 +45,9 @@ public class RedisDatabase {
             RedisURI.Builder uriBuilder = RedisURI.Builder
                     .redis(host, port)
                     .withDatabase(database)
-                    .withTimeout(Duration.ofSeconds(2));
+                    .withTimeout(Duration.ofSeconds(10));
 
-            if (!password.isEmpty()) {
+            if (password != null && !password.isEmpty()) {
                 uriBuilder.withPassword(password.toCharArray());
             }
 
@@ -55,9 +56,17 @@ public class RedisDatabase {
             }
 
             RedisURI redisURI = uriBuilder.build();
-            this.redisClient = RedisClient.create(redisURI);
 
-            // Connection pool configuration
+            this.clientResources = DefaultClientResources.builder()
+                    .ioThreadPoolSize(4)
+                    .computationThreadPoolSize(4)
+                    .commandLatencyCollectorOptions(
+                            io.lettuce.core.metrics.CommandLatencyCollectorOptions.disabled()
+                    )
+                    .build();
+
+            this.redisClient = RedisClient.create(clientResources, redisURI);
+
             GenericObjectPoolConfig<StatefulRedisConnection<String, String>> poolConfig = new GenericObjectPoolConfig<>();
             poolConfig.setMaxTotal(20);
             poolConfig.setMaxIdle(10);
@@ -75,7 +84,6 @@ public class RedisDatabase {
                     poolConfig
             );
 
-            // Test connection
             try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
                 String response = connection.sync().ping();
                 logger.info("Redis connection established successfully! Response: " + response);
@@ -93,7 +101,6 @@ public class RedisDatabase {
     public void disconnect() {
         this.running = false;
 
-        // Close all subscriptions
         for (StatefulRedisPubSubConnection<byte[], byte[]> connection : subscriptions.values()) {
             if (connection != null && connection.isOpen()) {
                 connection.close();
@@ -101,14 +108,16 @@ public class RedisDatabase {
         }
         subscriptions.clear();
 
-        // Close connection pool
         if (connectionPool != null && !connectionPool.isClosed()) {
             connectionPool.close();
         }
 
-        // Shutdown client
         if (redisClient != null) {
             redisClient.shutdown();
+        }
+
+        if (clientResources != null) {
+            clientResources.shutdown();
         }
 
         logger.info("Redis connection closed!");
@@ -126,7 +135,6 @@ public class RedisDatabase {
                         channel.getBytes(StandardCharsets.UTF_8),
                         message
                 );
-                logger.info("Published to channel " + channel + ", received by " + receivers + " subscribers");
             } finally {
                 pubSubConnection.close();
             }

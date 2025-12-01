@@ -9,6 +9,8 @@ import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.manager.ManagerStorage;
 import center.bedwars.lobby.nms.NMSManager;
 import center.bedwars.lobby.parkour.ParkourManager;
+import center.bedwars.lobby.scoreboard.ScoreboardManager;
+import center.bedwars.lobby.tablist.TablistManager;
 import center.bedwars.lobby.sync.LobbySyncManager;
 import center.bedwars.lobby.sync.EntityPlayerSyncManager;
 import center.bedwars.lobby.sync.PlayerSyncManager;
@@ -47,6 +49,9 @@ public final class Lobby extends JavaPlugin {
         managerStorage.registerAndLoad(new PlayerVisibilityManager());
         managerStorage.registerAndLoad(new HotbarManager());
         managerStorage.registerAndLoad(new ParkourManager());
+
+        managerStorage.registerAndLoad(new ScoreboardManager());
+        managerStorage.registerAndLoad(new TablistManager());
 
         managerStorage.registerAndLoad(new PlayerSyncManager());
         managerStorage.registerAndLoad(new EntityPlayerSyncManager());

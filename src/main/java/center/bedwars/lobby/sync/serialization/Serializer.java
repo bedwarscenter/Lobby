@@ -1,5 +1,7 @@
 package center.bedwars.lobby.sync.serialization;
 
+import center.bedwars.lobby.sync.SyncEvent;
+import center.bedwars.lobby.sync.SyncEventType;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import java.io.*;
@@ -26,6 +28,7 @@ public final class Serializer {
     }
 
     public static byte[] serialize(Object obj) {
+        if (obj instanceof SyncEvent) return serializeSyncEvent((SyncEvent) obj);
         if (obj instanceof BlockData) return serializeBlock((BlockData) obj);
         if (obj instanceof NPCData) return serializeNPC((NPCData) obj);
         if (obj instanceof HologramData) return serializeHologram((HologramData) obj);
@@ -35,12 +38,45 @@ public final class Serializer {
     }
 
     public static <T> T deserialize(byte[] data, Class<T> clazz) {
+        if (clazz == SyncEvent.class) return clazz.cast(deserializeSyncEvent(data));
         if (clazz == BlockData.class) return clazz.cast(deserializeBlock(data));
         if (clazz == NPCData.class) return clazz.cast(deserializeNPC(data));
         if (clazz == HologramData.class) return clazz.cast(deserializeHologram(data));
         if (clazz == ChunkData.class) return clazz.cast(deserializeChunk(data));
         if (clazz == WorldSyncData.class) return clazz.cast(deserializeWorld(data));
         throw new IllegalArgumentException("Unknown type: " + clazz);
+    }
+
+    private static byte[] serializeSyncEvent(SyncEvent event) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+
+            dos.writeUTF(event.getLobbyId());
+            dos.writeByte(event.getType().ordinal());
+            dos.writeInt(event.getData().length);
+            dos.write(event.getData());
+            dos.writeLong(event.getTimestamp());
+
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to serialize SyncEvent", e);
+        }
+    }
+
+    private static SyncEvent deserializeSyncEvent(byte[] data) {
+        try (DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data))) {
+            String lobbyId = dis.readUTF();
+            SyncEventType type = SyncEventType.values()[dis.readByte()];
+            int dataLength = dis.readInt();
+            byte[] eventData = new byte[dataLength];
+            dis.readFully(eventData);
+            long timestamp = dis.readLong();
+
+            SyncEvent event = new SyncEvent(lobbyId, type, eventData);
+            return event;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to deserialize SyncEvent", e);
+        }
     }
 
     private static byte[] serializeLocation(LocationData loc) {

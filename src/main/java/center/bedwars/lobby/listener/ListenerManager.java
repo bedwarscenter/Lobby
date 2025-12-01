@@ -1,16 +1,11 @@
 package center.bedwars.lobby.listener;
 
 import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.listener.listeners.general.PlayerEnvironmentListener;
-import center.bedwars.lobby.listener.listeners.general.PlayerRestrictionListener;
-import center.bedwars.lobby.listener.listeners.general.PlayerSafetyListener;
-import center.bedwars.lobby.listener.listeners.general.WorldDayListener;
-import center.bedwars.lobby.listener.listeners.general.WorldWeatherListener;
+import center.bedwars.lobby.listener.listeners.general.*;
 import center.bedwars.lobby.listener.listeners.hotbar.HotbarListener;
-import center.bedwars.lobby.listener.listeners.important.JoinListener;
-import center.bedwars.lobby.listener.listeners.important.QuitListener;
-import center.bedwars.lobby.listener.listeners.parkour.MoveListener;
-import center.bedwars.lobby.listener.listeners.parkour.ParkourListener;
+import center.bedwars.lobby.listener.listeners.important.*;
+import center.bedwars.lobby.listener.listeners.parkour.*;
+import center.bedwars.lobby.listener.listeners.phoenix.DisguiseListener;
 import center.bedwars.lobby.listener.listeners.sync.*;
 import center.bedwars.lobby.manager.Manager;
 import org.bukkit.Bukkit;
@@ -28,19 +23,20 @@ public class ListenerManager extends Manager {
         registerListeners(
                 new JoinListener(),
                 new QuitListener(),
+                new HotbarListener(),
                 new MoveListener(),
+                new ParkourListener(),
                 new WorldWeatherListener(),
                 new WorldDayListener(),
-                new ParkourListener(),
-                new HotbarListener(),
+                new PlayerEnvironmentListener(),
+                new PlayerSafetyListener(),
+                new PlayerRestrictionListener(),
                 new LobbySyncListener(),
                 new NPCCreationListener(),
                 new PlayerSyncListener(),
                 new EntityPacketListener(),
                 new HologramCreationListener(),
-                new PlayerEnvironmentListener(),
-                new PlayerSafetyListener(),
-                new PlayerRestrictionListener()
+                new DisguiseListener()
         );
     }
 

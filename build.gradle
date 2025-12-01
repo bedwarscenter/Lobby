@@ -8,6 +8,10 @@ group = project.findProperty("group")
 version = project.findProperty("version")
 description = project.findProperty("description")
 
+configurations.all {
+    exclude group: 'org.bouncycastle'
+}
+
 dependencies {
     compileOnly("xyz.refinedev.spigot:Carbon-API:1.8.8-R0.1-SNAPSHOT") {
         exclude group: 'me.carleslc.Simple-YAML', module: 'Simple-Yaml'
@@ -17,16 +21,24 @@ dependencies {
         exclude group: 'me.carleslc.Simple-YAML', module: 'Simple-Yaml'
         exclude group: 'me.lucko', module: 'spark-api'
     }
+
     compileOnly "me.clip:placeholderapi:${project.findProperty("placeholderApiVersion")}"
     compileOnly "xyz.refinedev.phoenix:pxAPI:${project.findProperty("phoenixApiVersion")}"
     compileOnly "org.projectlombok:lombok:${project.findProperty("lombokVersion")}"
     compileOnly "de.marcely.bedwars:API:${project.findProperty("mbedwarsApiVersion")}"
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
 
-    implementation("com.esotericsoftware:kryo:${project.findProperty("kryoVersion")}")
-    implementation("io.lettuce:lettuce-core:${project.findProperty("lettuceVersion")}")
+    implementation("org.latencyutils:LatencyUtils:${project.findProperty("latencyVersion")}")
+
+    implementation("io.lettuce:lettuce-core:${project.findProperty("lettuceVersion")}") {
+        exclude group: 'io.netty'
+    }
+
     implementation("org.apache.commons:commons-pool2:${project.findProperty("commonsPool2Version")}")
     implementation("org.mongodb:mongodb-driver-sync:${project.findProperty("mongoDriverVersion")}")
+
+    implementation("io.projectreactor:reactor-core:${project.findProperty("reactorVersion")}")
+
     implementation("net.j4c0b3y.CommandAPI:bukkit:${project.findProperty("commandApiVersion")}")
     implementation("net.j4c0b3y:MenuAPI-core:${project.findProperty("menuApiVersion")}")
     implementation("net.j4c0b3y:ConfigAPI-core:${project.findProperty("configApiVersion")}")
@@ -34,7 +46,7 @@ dependencies {
     annotationProcessor "org.projectlombok:lombok:${project.findProperty("lombokVersion")}"
 }
 
-def targetJavaVersion = project.findProperty("targetJavaVersion")?.toInteger() ?: 22
+def targetJavaVersion = project.findProperty("targetJavaVersion")?.toInteger() ?: 21
 
 java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
@@ -53,9 +65,6 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << "-parameters"
     options.fork = true
 
-    sourceCompatibility = JavaVersion.VERSION_22
-    targetCompatibility = JavaVersion.VERSION_22
-
     if (JavaVersion.current().isJava10Compatible()) {
         options.release.set(targetJavaVersion)
     }
@@ -64,9 +73,9 @@ tasks.withType(JavaCompile).configureEach {
 processResources {
     def props = [
             version: version,
-            name: project.findProperty("projectName") ?: "ExtraPlaceholders",
+            name: project.findProperty("projectName") ?: "BedWarsLobby",
             description: description,
-            minecraftVersion: project.findProperty("minecraftVersion") ?: "1.8.9",
+            minecraftVersion: project.findProperty("minecraftVersion") ?: "1.8.8",
             apiVersion: project.findProperty("apiVersion") ?: "1.8"
     ]
 

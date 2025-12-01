@@ -5,6 +5,8 @@ import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.dependency.dependencies.PhoenixDependency;
 import center.bedwars.lobby.parkour.ParkourManager;
+import center.bedwars.lobby.scoreboard.ScoreboardManager;
+import center.bedwars.lobby.tablist.TablistManager;
 import center.bedwars.lobby.util.ColorUtil;
 import center.bedwars.lobby.util.SpawnUtil;
 import org.bukkit.entity.Player;
@@ -18,13 +20,17 @@ public class JoinListener implements Listener {
 
     private final DependencyManager dependencyManager;
     private final ParkourManager parkourManager;
+    private final ScoreboardManager scoreboardManager;
+    private final TablistManager tablistManager;
 
     public JoinListener() {
         this.dependencyManager = Lobby.getManagerStorage().getManager(DependencyManager.class);
         this.parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
+        this.scoreboardManager = Lobby.getManagerStorage().getManager(ScoreboardManager.class);
+        this.tablistManager = Lobby.getManagerStorage().getManager(TablistManager.class);
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         event.setJoinMessage(null);
 
@@ -32,15 +38,23 @@ public class JoinListener implements Listener {
         if (player == null) return;
 
         parkourManager.handlePlayerQuit(player);
+
         if (SettingsConfiguration.PLAYER.TELEPORT_ON_JOIN) {
             SpawnUtil.teleportToSpawn(player);
+        }
+
+        if (scoreboardManager != null) {
+            scoreboardManager.createScoreboard(player);
+        }
+
+        if (tablistManager != null) {
+            tablistManager.createTablist(player);
         }
 
         String joinMessage = this.getJoinMessage(player);
         if (joinMessage != null) {
             event.setJoinMessage(joinMessage);
         }
-
     }
 
     private String getJoinMessage(Player player) {

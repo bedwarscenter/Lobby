@@ -6,6 +6,8 @@ import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.parkour.session.ParkourSession;
+import center.bedwars.lobby.scoreboard.ScoreboardManager;
+import center.bedwars.lobby.tablist.TablistManager;
 import center.bedwars.lobby.util.ColorUtil;
 import net.j4c0b3y.api.command.annotation.command.Command;
 import net.j4c0b3y.api.command.annotation.command.Requires;
@@ -39,8 +41,21 @@ public class BedWarsLobbyCommand {
             ConfigurationManager.reloadConfigurations();
             long reloadTime = System.currentTimeMillis() - startTime;
 
-            Bukkit.getScheduler().runTask(lobby, () -> ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.RELOADED
-                    .replace("%time%", String.valueOf(reloadTime))));
+            Bukkit.getScheduler().runTask(lobby, () -> {
+                ScoreboardManager scoreboardManager = Lobby.getManagerStorage().getManager(ScoreboardManager.class);
+                TablistManager tablistManager = Lobby.getManagerStorage().getManager(TablistManager.class);
+
+                if (scoreboardManager != null) {
+                    scoreboardManager.reload();
+                }
+
+                if (tablistManager != null) {
+                    tablistManager.reload();
+                }
+
+                ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.RELOADED
+                        .replace("%time%", String.valueOf(reloadTime)));
+            });
         });
     }
 
@@ -66,17 +81,15 @@ public class BedWarsLobbyCommand {
         ParkourManager parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
         ParkourSession session = parkourManager.getSessionManager().getSession(sender);
 
-        Location loc;
-
-        loc = sender.getLocation();
+        Location loc = sender.getLocation();
         SettingsConfiguration.SPAWN_LOCATION = String.format("%s;%s;%s;%s;%s;%s",
                 loc.getX(), loc.getY(), loc.getZ(),
                 loc.getWorld().getName(),
                 loc.getYaw(), loc.getPitch());
+
         if (session != null) {
             ColorUtil.sendMessage(sender, "&aSet parkour spawn location!");
         } else {
-
             ColorUtil.sendMessage(sender, "&aSet lobby spawn location!");
         }
 

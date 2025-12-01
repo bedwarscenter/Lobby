@@ -1,10 +1,7 @@
 package center.bedwars.lobby.configuration;
 
 import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.configuration.configurations.ItemsConfiguration;
-import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
-import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
-import center.bedwars.lobby.configuration.configurations.SoundConfiguration;
+import center.bedwars.lobby.configuration.configurations.*;
 import center.bedwars.lobby.manager.Manager;
 import net.j4c0b3y.api.config.ConfigHandler;
 import net.j4c0b3y.api.config.StaticConfig;
@@ -20,6 +17,8 @@ public class ConfigurationManager extends Manager {
     private LanguageConfiguration languageConfiguration;
     private SoundConfiguration soundConfiguration;
     private ItemsConfiguration itemsConfiguration;
+    private ScoreboardConfiguration scoreboardConfiguration;
+    private TablistConfiguration tablistConfiguration;
 
     @Override
     protected void onLoad() {
@@ -37,6 +36,12 @@ public class ConfigurationManager extends Manager {
 
         this.itemsConfiguration = new ItemsConfiguration(folder, configHandler);
         this.itemsConfiguration.load();
+
+        this.tablistConfiguration = new TablistConfiguration(folder, configHandler);
+        this.tablistConfiguration.load();
+
+        this.scoreboardConfiguration = new ScoreboardConfiguration(folder, configHandler);
+        this.scoreboardConfiguration.load();
     }
 
     @Override
@@ -50,7 +55,15 @@ public class ConfigurationManager extends Manager {
     public static long reloadConfigurations() {
         long start = System.currentTimeMillis();
 
-        configHandler.getRegistered().forEach(StaticConfig::load);
+        for (StaticConfig config : configHandler.getRegistered()) {
+            try {
+                Lobby.getINSTANCE().getLogger().info("Loading config: " + config.getClass().getSimpleName());
+                config.load();
+            } catch (Exception e) {
+                Lobby.getINSTANCE().getLogger().severe("Failed to load config: " + config.getClass().getSimpleName());
+                e.printStackTrace();
+            }
+        }
 
         return System.currentTimeMillis() - start;
     }
@@ -68,7 +81,14 @@ public class ConfigurationManager extends Manager {
 
         String preservedLobbyId = SettingsConfiguration.LOBBY_ID;
 
-        configHandler.getRegistered().forEach(StaticConfig::load);
+        for (StaticConfig config : configHandler.getRegistered()) {
+            try {
+                config.load();
+            } catch (Exception e) {
+                Lobby.getINSTANCE().getLogger().severe("Failed to load config: " + config.getClass().getSimpleName());
+                e.printStackTrace();
+            }
+        }
 
         SettingsConfiguration.LOBBY_ID = preservedLobbyId;
 

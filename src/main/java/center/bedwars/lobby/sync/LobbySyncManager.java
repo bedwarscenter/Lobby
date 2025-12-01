@@ -52,14 +52,17 @@ public class LobbySyncManager extends Manager {
         ISyncHandler blockHandler = new BlockSyncHandler();
         handlers.put(SyncEventType.BLOCK_PLACE, blockHandler);
         handlers.put(SyncEventType.BLOCK_BREAK, blockHandler);
+
         ISyncHandler npcHandler = new NPCSyncHandler();
         handlers.put(SyncEventType.NPC_CREATE, npcHandler);
         handlers.put(SyncEventType.NPC_DELETE, npcHandler);
         handlers.put(SyncEventType.NPC_UPDATE, npcHandler);
+
         ISyncHandler hologramHandler = new HologramSyncHandler();
         handlers.put(SyncEventType.HOLOGRAM_CREATE, hologramHandler);
         handlers.put(SyncEventType.HOLOGRAM_DELETE, hologramHandler);
         handlers.put(SyncEventType.HOLOGRAM_UPDATE, hologramHandler);
+
         handlers.put(SyncEventType.CHUNK_SNAPSHOT, new ChunkSnapshotSyncHandler());
         handlers.put(SyncEventType.CONFIG_PUSH, new ConfigSyncHandler());
         handlers.put(SyncEventType.WORLD_SYNC, new WorldSyncHandler());
@@ -135,4 +138,5 @@ public class LobbySyncManager extends Manager {
         byte[] data = new byte[]{1};
         broadcastEvent(SyncEventType.FULL_SYNC, data);
     }
+
 }
