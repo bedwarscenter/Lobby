@@ -9,12 +9,10 @@ import java.lang.reflect.Field;
 
 public class PlayerTablist {
 
-    private final Player player;
     private final HeaderFooterCache cache;
     private final PacketSender packetSender;
 
     public PlayerTablist(Player player) {
-        this.player = player;
         this.cache = new HeaderFooterCache();
         this.packetSender = new PacketSender(player);
     }

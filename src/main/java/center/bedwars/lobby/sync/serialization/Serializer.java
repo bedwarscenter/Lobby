@@ -70,10 +70,8 @@ public final class Serializer {
             int dataLength = dis.readInt();
             byte[] eventData = new byte[dataLength];
             dis.readFully(eventData);
-            long timestamp = dis.readLong();
 
-            SyncEvent event = new SyncEvent(lobbyId, type, eventData);
-            return event;
+            return new SyncEvent(lobbyId, type, eventData);
         } catch (IOException e) {
             throw new RuntimeException("Failed to deserialize SyncEvent", e);
         }
@@ -287,8 +285,6 @@ public final class Serializer {
         public double x, y, z;
         public float yaw, pitch;
 
-        public LocationData() {}
-
         public LocationData(byte worldId, double x, double y, double z, float yaw, float pitch) {
             this.worldId = worldId;
             this.x = x;
@@ -311,7 +307,6 @@ public final class Serializer {
 
         public Location toLocation(org.bukkit.Server server) {
             String worldName = getWorldName(worldId);
-            if (worldName == null) return null;
             return new Location(server.getWorld(worldName), x, y, z, yaw, pitch);
         }
 
@@ -370,9 +365,6 @@ public final class Serializer {
             this.signature = signature != null ? signature : "";
         }
 
-        public String getNpcIdAsString() {
-            return String.valueOf(npcId);
-        }
     }
 
     public static class HologramData {
@@ -391,7 +383,6 @@ public final class Serializer {
 
     public static class WorldSyncData {
         public String worldName;
-        public byte worldId;
         public WorldBorderData border;
         public Map<String, String> gameRules;
         public String difficulty;

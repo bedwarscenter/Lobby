@@ -1,44 +1,16 @@
 package center.bedwars.lobby.tablist;
 
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 import xyz.refinedev.phoenix.rank.IRank;
 
-public class PlayerEntry {
-
-    private final Player player;
-    private final String displayName;
-    private final int priority;
-    private final IRank rank;
-
-    public PlayerEntry(Player player, String displayName, int priority, IRank rank) {
-        this.player = player;
-        this.displayName = displayName;
-        this.priority = priority;
-        this.rank = rank;
-    }
-
-    public Player getPlayer() {
-        return player;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public int getPriority() {
-        return priority;
-    }
-
-    public IRank getRank() {
-        return rank;
-    }
+public record PlayerEntry(Player player, String displayName, int priority, IRank rank) {
 
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
-        if (!(obj instanceof PlayerEntry)) return false;
+        if (!(obj instanceof PlayerEntry other)) return false;
 
-        PlayerEntry other = (PlayerEntry) obj;
         return player.getUniqueId().equals(other.player.getUniqueId());
     }
 
@@ -47,6 +19,7 @@ public class PlayerEntry {
         return player.getUniqueId().hashCode();
     }
 
+    @NotNull
     @Override
     public String toString() {
         return "PlayerEntry{" +

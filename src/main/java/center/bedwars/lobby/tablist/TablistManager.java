@@ -148,8 +148,8 @@ public class TablistManager extends Manager {
 
         private void updatePlayerDisplayName(Player viewer, PlayerEntry entry) {
             try {
-                PacketPlayOutPlayerInfo packet = createPacket(entry.getPlayer());
-                modifyPacketDisplayName(packet, entry.getDisplayName());
+                PacketPlayOutPlayerInfo packet = createPacket(entry.player());
+                modifyPacketDisplayName(packet, entry.displayName());
                 NMSHelper.sendPacket(viewer, packet);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -167,12 +167,11 @@ public class TablistManager extends Manager {
             Field field = packet.getClass().getDeclaredField("b");
             field.setAccessible(true);
 
-            @SuppressWarnings("unchecked")
             List<PacketPlayOutPlayerInfo.PlayerInfoData> dataList =
                     (List<PacketPlayOutPlayerInfo.PlayerInfoData>) field.get(packet);
 
             if (dataList != null && !dataList.isEmpty()) {
-                setDisplayName(dataList.get(0), displayName);
+                setDisplayName(dataList.getFirst(), displayName);
             }
         }
 
@@ -219,22 +218,17 @@ public class TablistManager extends Manager {
         }
     }
 
-    private class RankPriorityCalculator {
-        private final IRank rank;
-
-        public RankPriorityCalculator(IRank rank) {
-            this.rank = rank;
-        }
+    private record RankPriorityCalculator(IRank rank) {
 
         public int getPriority() {
-            if (rank == null) return -1;
+                if (rank == null) return -1;
 
-            int index = TablistConfiguration.RANK_PRIORITY.indexOf(rank.getName());
-            return index >= 0 ? TablistConfiguration.RANK_PRIORITY.size() - index : -1;
+                int index = TablistConfiguration.RANK_PRIORITY.indexOf(rank.getName());
+                return index >= 0 ? TablistConfiguration.RANK_PRIORITY.size() - index : -1;
+            }
         }
-    }
 
-    private class PlayerEntryComparator implements Comparator<PlayerEntry> {
+    private static class PlayerEntryComparator implements Comparator<PlayerEntry> {
 
         @Override
         public int compare(PlayerEntry a, PlayerEntry b) {
@@ -248,22 +242,22 @@ public class TablistManager extends Manager {
         }
 
         private int comparePriority(PlayerEntry a, PlayerEntry b) {
-            return Integer.compare(b.getPriority(), a.getPriority());
+            return Integer.compare(b.priority(), a.priority());
         }
 
         private int compareMvpPlusColors(PlayerEntry a, PlayerEntry b) {
             if (!areBothMvpPlus(a, b)) return 0;
 
-            int aColorPriority = getPlusColorPriority(a.getRank());
-            int bColorPriority = getPlusColorPriority(b.getRank());
+            int aColorPriority = getPlusColorPriority(a.rank());
+            int bColorPriority = getPlusColorPriority(b.rank());
 
             return Integer.compare(bColorPriority, aColorPriority);
         }
 
         private boolean areBothMvpPlus(PlayerEntry a, PlayerEntry b) {
-            return a.getRank() != null && b.getRank() != null &&
-                    "MVP+".equals(a.getRank().getName()) &&
-                    "MVP+".equals(b.getRank().getName());
+            return a.rank() != null && b.rank() != null &&
+                    "MVP+".equals(a.rank().getName()) &&
+                    "MVP+".equals(b.rank().getName());
         }
 
         private int getPlusColorPriority(IRank rank) {
@@ -274,7 +268,7 @@ public class TablistManager extends Manager {
         }
 
         private int compareNames(PlayerEntry a, PlayerEntry b) {
-            return a.getPlayer().getName().compareToIgnoreCase(b.getPlayer().getName());
+            return a.player().getName().compareToIgnoreCase(b.player().getName());
         }
     }
 

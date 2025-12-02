@@ -37,7 +37,7 @@ public class Parkour {
 
     public ParkourCheckpoint getCheckpointAt(Location location) {
         for (ParkourCheckpoint checkpoint : checkpoints) {
-            if (checkpoint.getLocation().getBlock().getLocation()
+            if (checkpoint.location().getBlock().getLocation()
                     .equals(location.getBlock().getLocation())) {
                 return checkpoint;
             }
@@ -47,7 +47,7 @@ public class Parkour {
 
     public ParkourCheckpoint getCheckpoint(int number) {
         for (ParkourCheckpoint checkpoint : checkpoints) {
-            if (checkpoint.getNumber() == number) return checkpoint;
+            if (checkpoint.number() == number) return checkpoint;
         }
         return null;
     }

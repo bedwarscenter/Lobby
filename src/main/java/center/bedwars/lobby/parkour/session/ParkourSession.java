@@ -45,6 +45,6 @@ public class ParkourSession {
         if (maxCheckpoint == -1) return null;
 
         ParkourCheckpoint checkpoint = parkour.getCheckpoint(maxCheckpoint);
-        return checkpoint != null ? checkpoint.getLocation() : null;
+        return checkpoint != null ? checkpoint.location() : null;
     }
 }

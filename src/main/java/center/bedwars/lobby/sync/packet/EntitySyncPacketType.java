@@ -1,5 +1,8 @@
 package center.bedwars.lobby.sync.packet;
 
+import lombok.Getter;
+
+@Getter
 public enum EntitySyncPacketType {
     SPAWN((byte) 0),
     MOVE((byte) 1),
@@ -14,10 +17,6 @@ public enum EntitySyncPacketType {
 
     EntitySyncPacketType(byte id) {
         this.id = id;
-    }
-
-    public byte getId() {
-        return id;
     }
 
     public static EntitySyncPacketType fromId(byte id) {

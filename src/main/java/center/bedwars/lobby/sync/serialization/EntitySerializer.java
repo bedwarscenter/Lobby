@@ -38,17 +38,16 @@ public final class EntitySerializer {
     }
 
     private static EntityPacket createPacket(EntitySyncPacketType type) {
-        switch (type) {
-            case SPAWN: return new SpawnEntityPacket();
-            case MOVE: return new MoveEntityPacket();
-            case TELEPORT: return new TeleportEntityPacket();
-            case SNEAK: return new SneakEntityPacket();
-            case SPRINT: return new SprintEntityPacket();
-            case SWING: return new SwingEntityPacket();
-            case SLOT: return new SlotEntityPacket();
-            case DESPAWN: return new DespawnEntityPacket();
-            default: throw new IllegalArgumentException("Unknown type: " + type);
-        }
+        return switch (type) {
+            case SPAWN -> new SpawnEntityPacket();
+            case MOVE -> new MoveEntityPacket();
+            case TELEPORT -> new TeleportEntityPacket();
+            case SNEAK -> new SneakEntityPacket();
+            case SPRINT -> new SprintEntityPacket();
+            case SWING -> new SwingEntityPacket();
+            case SLOT -> new SlotEntityPacket();
+            case DESPAWN -> new DespawnEntityPacket();
+        };
     }
 
     public interface EntityPacket {

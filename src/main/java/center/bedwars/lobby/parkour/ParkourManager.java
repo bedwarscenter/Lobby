@@ -159,9 +159,9 @@ public class ParkourManager extends Manager {
 
         if (finish == null) return null;
 
-        checkpoints.sort(Comparator.comparingDouble(cp -> cp.getLocation().distanceSquared(start)));
+        checkpoints.sort(Comparator.comparingDouble(cp -> cp.location().distanceSquared(start)));
         for (int i = 0; i < checkpoints.size(); i++) {
-            checkpoints.set(i, new ParkourCheckpoint(i + 1, checkpoints.get(i).getLocation()));
+            checkpoints.set(i, new ParkourCheckpoint(i + 1, checkpoints.get(i).location()));
         }
 
         return new Parkour("parkour_" + UUID.randomUUID().toString().substring(0, 8),
@@ -174,9 +174,9 @@ public class ParkourManager extends Manager {
                 LanguageConfiguration.HOLOGRAM.START_SUBTITLE));
 
         for (ParkourCheckpoint cp : parkour.getCheckpoints()) {
-            parkour.addCheckpointHologram(cp.getNumber(),
-                    createHologram(parkour.getId() + "_cp_" + cp.getNumber(),
-                            cp.getLocation(), LanguageConfiguration.HOLOGRAM.CHECKPOINT_TITLE,
+            parkour.addCheckpointHologram(cp.number(),
+                    createHologram(parkour.getId() + "_cp_" + cp.number(),
+                            cp.location(), LanguageConfiguration.HOLOGRAM.CHECKPOINT_TITLE,
                             LanguageConfiguration.HOLOGRAM.CHECKPOINT_SUBTITLE));
         }
 
@@ -233,9 +233,9 @@ public class ParkourManager extends Manager {
         if (session == null) return;
 
         ParkourCheckpoint cp = session.getParkour().getCheckpointAt(location);
-        if (cp == null || session.hasReachedCheckpoint(cp.getNumber())) return;
+        if (cp == null || session.hasReachedCheckpoint(cp.number())) return;
 
-        session.reachCheckpoint(cp.getNumber());
+        session.reachCheckpoint(cp.number());
         ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.CHECKPOINT_REACHED);
         playSound(player, SoundConfiguration.PARKOUR.CHECKPOINT_SOUND,
                 SoundConfiguration.PARKOUR.CHECKPOINT_VOLUME, SoundConfiguration.PARKOUR.CHECKPOINT_PITCH);

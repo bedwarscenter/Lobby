@@ -57,10 +57,8 @@ public class ConfigurationManager extends Manager {
 
         for (StaticConfig config : configHandler.getRegistered()) {
             try {
-                Lobby.getINSTANCE().getLogger().info("Loading config: " + config.getClass().getSimpleName());
                 config.load();
             } catch (Exception e) {
-                Lobby.getINSTANCE().getLogger().severe("Failed to load config: " + config.getClass().getSimpleName());
                 e.printStackTrace();
             }
         }

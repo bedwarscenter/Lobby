@@ -14,7 +14,6 @@ public class PlayerScoreboard {
     private final String objectiveName;
     private final LineCache lineCache;
     private final ObjectivePacketFactory objectiveFactory;
-    private final ScorePacketFactory scoreFactory;
     private final TeamManager teamManager;
     private String currentTitle = "";
 
@@ -23,7 +22,7 @@ public class PlayerScoreboard {
         this.objectiveName = "bwsb_" + player.getName();
         this.lineCache = new LineCache();
         this.objectiveFactory = new ObjectivePacketFactory();
-        this.scoreFactory = new ScorePacketFactory();
+        ScorePacketFactory scoreFactory = new ScorePacketFactory();
         this.teamManager = new TeamManager(player, scoreFactory);
     }
 
@@ -135,7 +134,7 @@ public class PlayerScoreboard {
 
     private static class ObjectivePacketFactory {
 
-        public PacketPlayOutScoreboardObjective createObjective(String name, String displayName, int mode) throws Exception {
+        public PacketPlayOutScoreboardObjective createObjective(String name, String displayName, int mode) {
             PacketPlayOutScoreboardObjective packet = new PacketPlayOutScoreboardObjective();
             ReflectionUtil.setField(packet, "a", name);
             ReflectionUtil.setField(packet, "b", displayName);
@@ -144,7 +143,7 @@ public class PlayerScoreboard {
             return packet;
         }
 
-        public PacketPlayOutScoreboardDisplayObjective createDisplay(int position, String name) throws Exception {
+        public PacketPlayOutScoreboardDisplayObjective createDisplay(int position, String name) {
             PacketPlayOutScoreboardDisplayObjective packet = new PacketPlayOutScoreboardDisplayObjective();
             ReflectionUtil.setField(packet, "a", position);
             ReflectionUtil.setField(packet, "b", name);
@@ -155,7 +154,7 @@ public class PlayerScoreboard {
     private static class ScorePacketFactory {
 
         public PacketPlayOutScoreboardScore createScore(String entry, String objective, int score,
-                                                        PacketPlayOutScoreboardScore.EnumScoreboardAction action) throws Exception {
+                                                        PacketPlayOutScoreboardScore.EnumScoreboardAction action) {
             try {
                 return createWithConstructor(entry, objective, score, action);
             } catch (Exception e) {
@@ -178,7 +177,7 @@ public class PlayerScoreboard {
         }
 
         private PacketPlayOutScoreboardScore createWithFields(String entry, String objective, int score,
-                                                              PacketPlayOutScoreboardScore.EnumScoreboardAction action) throws Exception {
+                                                              PacketPlayOutScoreboardScore.EnumScoreboardAction action) {
             PacketPlayOutScoreboardScore packet = new PacketPlayOutScoreboardScore();
             ReflectionUtil.setField(packet, "a", entry);
             ReflectionUtil.setField(packet, "b", objective);
@@ -278,8 +277,8 @@ public class PlayerScoreboard {
             PacketPlayOutScoreboardTeam packet = new PacketPlayOutScoreboardTeam();
             ReflectionUtil.setField(packet, "a", teamName);
             ReflectionUtil.setField(packet, "b", "");
-            ReflectionUtil.setField(packet, "c", splitter.getPrefix());
-            ReflectionUtil.setField(packet, "d", splitter.getSuffix());
+            ReflectionUtil.setField(packet, "c", splitter.prefix());
+            ReflectionUtil.setField(packet, "d", splitter.suffix());
             ReflectionUtil.setField(packet, "e", "always");
             ReflectionUtil.setField(packet, "h", 0);
             ReflectionUtil.setField(packet, "g", Collections.singletonList(entry));
@@ -332,22 +331,7 @@ public class PlayerScoreboard {
         }
     }
 
-    private static class LineSplitter {
-        private final String prefix;
-        private final String suffix;
-
-        public LineSplitter(String prefix, String suffix) {
-            this.prefix = prefix;
-            this.suffix = suffix;
-        }
-
-        public String getPrefix() {
-            return prefix;
-        }
-
-        public String getSuffix() {
-            return suffix;
-        }
+    private record LineSplitter(String prefix, String suffix) {
     }
 
     private static class ScoreboardEntry {

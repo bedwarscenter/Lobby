@@ -1,5 +1,7 @@
 package center.bedwars.lobby.sync.serialization;
 
+import lombok.Getter;
+
 import java.io.*;
 import java.util.UUID;
 
@@ -34,6 +36,7 @@ public final class PlayerSerializer {
         return new PlayerSyncPacket(lobbyId, action, playerId, name, texture, signature);
     }
 
+    @Getter
     public enum PlayerSyncAction {
         JOIN((byte) 0),
         QUIT((byte) 1),
@@ -43,10 +46,6 @@ public final class PlayerSerializer {
 
         PlayerSyncAction(byte id) {
             this.id = id;
-        }
-
-        public byte getId() {
-            return id;
         }
 
         public static PlayerSyncAction fromId(byte id) {
