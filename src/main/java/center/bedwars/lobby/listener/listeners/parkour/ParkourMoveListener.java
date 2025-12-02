@@ -11,11 +11,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 
-public class MoveListener implements Listener {
+public class ParkourMoveListener implements Listener {
 
     private final ParkourManager parkourManager;
 
-    public MoveListener() {
+    public ParkourMoveListener() {
         this.parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
     }
 

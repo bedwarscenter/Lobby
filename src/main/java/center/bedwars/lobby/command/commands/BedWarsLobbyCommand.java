@@ -4,6 +4,7 @@ import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.ConfigurationManager;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
+import center.bedwars.lobby.nametag.NametagManager;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.parkour.session.ParkourSession;
 import center.bedwars.lobby.scoreboard.ScoreboardManager;
@@ -44,6 +45,7 @@ public class BedWarsLobbyCommand {
             Bukkit.getScheduler().runTask(lobby, () -> {
                 ScoreboardManager scoreboardManager = Lobby.getManagerStorage().getManager(ScoreboardManager.class);
                 TablistManager tablistManager = Lobby.getManagerStorage().getManager(TablistManager.class);
+                NametagManager nametagManager = Lobby.getManagerStorage().getManager(NametagManager.class);
 
                 if (scoreboardManager != null) {
                     scoreboardManager.reload();
@@ -51,6 +53,10 @@ public class BedWarsLobbyCommand {
 
                 if (tablistManager != null) {
                     tablistManager.reload();
+                }
+
+                if (nametagManager != null) {
+                    nametagManager.reload();
                 }
 
                 ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.RELOADED

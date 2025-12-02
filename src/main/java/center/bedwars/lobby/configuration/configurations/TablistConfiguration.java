@@ -1,3 +1,4 @@
+
 package center.bedwars.lobby.configuration.configurations;
 
 import net.j4c0b3y.api.config.ConfigHandler;
@@ -6,6 +7,7 @@ import net.j4c0b3y.api.config.StaticConfig;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
+
 
 public class TablistConfiguration extends StaticConfig {
 
@@ -27,23 +29,25 @@ public class TablistConfiguration extends StaticConfig {
     );
 
     @Comment({
-            "Rank priorities for tablist sorting",
-            "Higher in the list equals to higher priority in tablist",
-            "Format: List order determines priority"
+            "Sorting configuration - works like TAB plugin",
+            "Available types:",
+            "  GROUPS:group1,group2,group3 - Sort by group order",
+            "  PLACEHOLDER_A_TO_Z:%placeholder% - Sort alphabetically A-Z",
+            "  PLACEHOLDER_Z_TO_A:%placeholder% - Sort alphabetically Z-A",
+            "  PLACEHOLDER_LOW_TO_HIGH:%placeholder% - Sort numerically low to high",
+            "  PLACEHOLDER_HIGH_TO_LOW:%placeholder% - Sort numerically high to low",
+            "  PLACEHOLDER:%placeholder%:value1,value2,value3 - Sort by placeholder output matching values",
+            "",
+            "Multiple elements with same priority: use | symbol",
+            "Example: GROUPS:owner,admin,vip1|vip2,default",
+            "",
+            "Sorting types are processed in order - first has highest priority"
     })
-    public static List<String> RANK_PRIORITY = Arrays.asList(
-            "Owner",
-            ""
+    public static List<String> SORTING_TYPES = Arrays.asList(
+            "GROUPS:Owner,Admin,Mod,Helper,MVP+,MVP,VIP+,VIP,Default",
+            "PLACEHOLDER_A_TO_Z:%player_name%"
     );
 
-    @Comment({
-            "Plus color priorities for MVP+ plus colors sorting",
-            "Higher in the list equals to higher priority in tablist",
-            "Format: Color codes in priority order"
-    })
-    public static List<String> PLUS_COLOR_PRIORITY = Arrays.asList(
-            "&a",
-            ""
-    );
-
+    @Comment("Case sensitive sorting for alphabetical sorting")
+    public static boolean CASE_SENSITIVE_SORTING = false;
 }

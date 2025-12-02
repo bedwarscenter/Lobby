@@ -1,12 +1,15 @@
 package center.bedwars.lobby.tablist;
 
 import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.configuration.configurations.NametagConfiguration;
 import center.bedwars.lobby.configuration.configurations.TablistConfiguration;
 import center.bedwars.lobby.dependency.DependencyManager;
-import center.bedwars.lobby.dependency.dependencies.PhoenixDependency;
 import center.bedwars.lobby.dependency.dependencies.PlaceholderAPIDependency;
 import center.bedwars.lobby.manager.Manager;
+import center.bedwars.lobby.nametag.NametagFormatter;
+import center.bedwars.lobby.nametag.NametagManager;
 import center.bedwars.lobby.nms.NMSHelper;
+import center.bedwars.lobby.tablist.sorting.SortingManager;
 import center.bedwars.lobby.util.ColorUtil;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
@@ -24,12 +27,12 @@ import java.util.stream.Collectors;
 public class TablistManager extends Manager {
 
     private final Map<UUID, PlayerTablist> tablists = new ConcurrentHashMap<>();
-    private final TablistFormatter formatter = new TablistFormatter();
-    private final PlayerNameUpdater nameUpdater = new PlayerNameUpdater();
+    private final SortingManager sortingManager = new SortingManager();
     private BukkitTask updateTask;
 
     @Override
     protected void onLoad() {
+        sortingManager.reload();
         startUpdateTask();
     }
 
@@ -41,6 +44,7 @@ public class TablistManager extends Manager {
 
     public void reload() {
         stopUpdateTask();
+        sortingManager.reload();
         startUpdateTask();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -89,190 +93,97 @@ public class TablistManager extends Manager {
         PlayerTablist tablist = tablists.get(player.getUniqueId());
         if (tablist == null) return;
 
-        String header = formatter.formatHeader(player);
-        String footer = formatter.formatFooter(player);
+        String header = formatHeader(player);
+        String footer = formatFooter(player);
 
         tablist.update(header, footer);
-        nameUpdater.updatePlayerNames(player);
+        updatePlayerNames(player);
     }
 
-    private class TablistFormatter {
+    private String formatHeader(Player player) {
+        return TablistConfiguration.HEADER.stream()
+                .map(line -> parsePlaceholders(player, line))
+                .map(ColorUtil::color)
+                .collect(Collectors.joining("\n"))
+                .trim();
+    }
 
-        public String formatHeader(Player player) {
-            return formatLines(TablistConfiguration.HEADER, player);
+    private String formatFooter(Player player) {
+        return TablistConfiguration.FOOTER.stream()
+                .map(line -> parsePlaceholders(player, line))
+                .map(ColorUtil::color)
+                .collect(Collectors.joining("\n"))
+                .trim();
+    }
+
+    private void updatePlayerNames(Player viewer) {
+        NametagManager nametagManager = Lobby.getManagerStorage().getManager(NametagManager.class);
+        if (nametagManager == null) return;
+
+        NametagFormatter formatter = nametagManager.getFormatter();
+
+        List<PlayerEntry> entries = new ArrayList<>();
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            String rankName = nametagManager.getPlayerRankName(player);
+            String displayName = nametagManager.getPlayerDisplayName(player);
+
+            NametagConfiguration.GroupConfig config = formatter.getConfig(player, rankName);
+
+            String tabPrefix = formatter.parsePlaceholders(player, config.tabprefix);
+            String tabSuffix = formatter.parsePlaceholders(player, config.tabsuffix);
+            String formattedName = ColorUtil.color(tabPrefix) + displayName + ColorUtil.color(tabSuffix);
+
+            entries.add(new PlayerEntry(player, formattedName, 0, null));
         }
 
-        public String formatFooter(Player player) {
-            return formatLines(TablistConfiguration.FOOTER, player);
-        }
+        entries.sort((a, b) -> {
+            String rankA = nametagManager.getPlayerRankName(a.player());
+            String rankB = nametagManager.getPlayerRankName(b.player());
+            return sortingManager.compare(a.player(), b.player(), rankA, rankB);
+        });
 
-        private String formatLines(List<String> lines, Player player) {
-            return lines.stream()
-                    .map(line -> parsePlaceholders(player, line))
-                    .map(ColorUtil::color)
-                    .collect(Collectors.joining("\n"))
-                    .trim();
+        for (PlayerEntry entry : entries) {
+            updatePlayerDisplayName(viewer, entry);
         }
     }
 
-    private class PlayerNameUpdater {
-
-        public void updatePlayerNames(Player viewer) {
-            PhoenixDependency phoenixDependency = getPhoenixDependency();
-            if (phoenixDependency == null || !phoenixDependency.isApiAvailable()) return;
-
-            List<PlayerEntry> entries = createPlayerEntries(phoenixDependency);
-            entries.sort(new PlayerEntryComparator());
-
-            entries.forEach(entry -> updatePlayerDisplayName(viewer, entry));
-        }
-
-        private PhoenixDependency getPhoenixDependency() {
-            DependencyManager dependencyManager = Lobby.getManagerStorage().getManager(DependencyManager.class);
-            return dependencyManager != null ? dependencyManager.getPhoenix() : null;
-        }
-
-        private List<PlayerEntry> createPlayerEntries(PhoenixDependency phoenixDependency) {
-            return Bukkit.getOnlinePlayers().stream()
-                    .map(player -> createPlayerEntry(player, phoenixDependency))
-                    .collect(Collectors.toList());
-        }
-
-        private PlayerEntry createPlayerEntry(Player player, PhoenixDependency phoenixDependency) {
-            IRank rank = phoenixDependency.getApi().getGrantHandler().getHighestRank(player.getUniqueId());
-            String displayName = new DisplayNameBuilder(player, rank).build();
-            int priority = new RankPriorityCalculator(rank).getPriority();
-
-            return new PlayerEntry(player, displayName, priority, rank);
-        }
-
-        private void updatePlayerDisplayName(Player viewer, PlayerEntry entry) {
-            try {
-                PacketPlayOutPlayerInfo packet = createPacket(entry.player());
-                modifyPacketDisplayName(packet, entry.displayName());
-                NMSHelper.sendPacket(viewer, packet);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        private PacketPlayOutPlayerInfo createPacket(Player target) {
-            return new PacketPlayOutPlayerInfo(
+    private void updatePlayerDisplayName(Player viewer, PlayerEntry entry) {
+        try {
+            PacketPlayOutPlayerInfo packet = new PacketPlayOutPlayerInfo(
                     PacketPlayOutPlayerInfo.EnumPlayerInfoAction.UPDATE_DISPLAY_NAME,
-                    NMSHelper.getHandle(target)
+                    NMSHelper.getHandle(entry.player())
             );
-        }
 
-        private void modifyPacketDisplayName(PacketPlayOutPlayerInfo packet, String displayName) throws Exception {
             Field field = packet.getClass().getDeclaredField("b");
             field.setAccessible(true);
 
+            @SuppressWarnings("unchecked")
             List<PacketPlayOutPlayerInfo.PlayerInfoData> dataList =
                     (List<PacketPlayOutPlayerInfo.PlayerInfoData>) field.get(packet);
 
             if (dataList != null && !dataList.isEmpty()) {
-                setDisplayName(dataList.getFirst(), displayName);
+                Field displayNameField = dataList.get(0).getClass().getDeclaredField("e");
+                displayNameField.setAccessible(true);
+
+                IChatBaseComponent component = IChatBaseComponent.ChatSerializer.a(
+                        "{\"text\":\"" + entry.displayName().replace("\"", "\\\"") + "\"}"
+                );
+                displayNameField.set(dataList.get(0), component);
             }
-        }
 
-        private void setDisplayName(PacketPlayOutPlayerInfo.PlayerInfoData data, String displayName) throws Exception {
-            Field displayNameField = data.getClass().getDeclaredField("e");
-            displayNameField.setAccessible(true);
-
-            IChatBaseComponent component = IChatBaseComponent.ChatSerializer.a(
-                    "{\"text\":\"" + displayName.replace("\"", "\\\"") + "\"}"
-            );
-            displayNameField.set(data, component);
-        }
-    }
-
-    private class DisplayNameBuilder {
-        private final Player player;
-        private final IRank rank;
-
-        public DisplayNameBuilder(Player player, IRank rank) {
-            this.player = player;
-            this.rank = rank;
-        }
-
-        public String build() {
-            StringBuilder name = new StringBuilder();
-            appendRankPrefix(name);
-            appendPlayerName(name);
-            return parsePlaceholders(player, name.toString());
-        }
-
-        private void appendRankPrefix(StringBuilder name) {
-            if (rank != null && hasValidPrefix()) {
-                name.append(ColorUtil.color(rank.getPrefix())).append(" ");
-            }
-        }
-
-        private boolean hasValidPrefix() {
-            String prefix = rank.getPrefix();
-            return prefix != null && !prefix.isEmpty();
-        }
-
-        private void appendPlayerName(StringBuilder name) {
-            name.append(player.getName());
-        }
-    }
-
-    private record RankPriorityCalculator(IRank rank) {
-
-        public int getPriority() {
-                if (rank == null) return -1;
-
-                int index = TablistConfiguration.RANK_PRIORITY.indexOf(rank.getName());
-                return index >= 0 ? TablistConfiguration.RANK_PRIORITY.size() - index : -1;
-            }
-        }
-
-    private static class PlayerEntryComparator implements Comparator<PlayerEntry> {
-
-        @Override
-        public int compare(PlayerEntry a, PlayerEntry b) {
-            int priorityComparison = comparePriority(a, b);
-            if (priorityComparison != 0) return priorityComparison;
-
-            int mvpPlusComparison = compareMvpPlusColors(a, b);
-            if (mvpPlusComparison != 0) return mvpPlusComparison;
-
-            return compareNames(a, b);
-        }
-
-        private int comparePriority(PlayerEntry a, PlayerEntry b) {
-            return Integer.compare(b.priority(), a.priority());
-        }
-
-        private int compareMvpPlusColors(PlayerEntry a, PlayerEntry b) {
-            if (!areBothMvpPlus(a, b)) return 0;
-
-            int aColorPriority = getPlusColorPriority(a.rank());
-            int bColorPriority = getPlusColorPriority(b.rank());
-
-            return Integer.compare(bColorPriority, aColorPriority);
-        }
-
-        private boolean areBothMvpPlus(PlayerEntry a, PlayerEntry b) {
-            return a.rank() != null && b.rank() != null &&
-                    "MVP+".equals(a.rank().getName()) &&
-                    "MVP+".equals(b.rank().getName());
-        }
-
-        private int getPlusColorPriority(IRank rank) {
-            if (rank == null || rank.getColorLegacy() == null) return -1;
-
-            int index = TablistConfiguration.PLUS_COLOR_PRIORITY.indexOf(rank.getColorLegacy());
-            return index >= 0 ? TablistConfiguration.PLUS_COLOR_PRIORITY.size() - index : -1;
-        }
-
-        private int compareNames(PlayerEntry a, PlayerEntry b) {
-            return a.player().getName().compareToIgnoreCase(b.player().getName());
+            NMSHelper.sendPacket(viewer, packet);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
     private String parsePlaceholders(Player player, String text) {
+        if (text == null) return "";
+
+        text = text.replace("%player_name%", player.getName())
+                .replace("%player%", player.getName());
+
         DependencyManager dependencyManager = Lobby.getManagerStorage().getManager(DependencyManager.class);
         if (dependencyManager == null) return text;
 

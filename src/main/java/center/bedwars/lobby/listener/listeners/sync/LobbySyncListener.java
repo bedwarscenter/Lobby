@@ -25,7 +25,7 @@ public class LobbySyncListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
-        if (!player.hasMetadata("BuildMode")) return;
+        if (!player.hasMetadata("SyncMode")) return;
 
         Block block = event.getBlock();
         BlockData blockData = new BlockData(block.getLocation(), block.getType(), block.getData());
@@ -36,7 +36,7 @@ public class LobbySyncListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        if (!player.hasMetadata("BuildMode")) return;
+        if (!player.hasMetadata("SyncMode")) return;
 
         Block block = event.getBlock();
         BlockData blockData = new BlockData(block.getLocation(), Material.AIR, (byte) 0);

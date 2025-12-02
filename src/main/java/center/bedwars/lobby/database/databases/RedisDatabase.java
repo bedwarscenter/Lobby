@@ -84,11 +84,6 @@ public class RedisDatabase {
                     poolConfig
             );
 
-            try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
-                String response = connection.sync().ping();
-                logger.info("Redis connection established successfully! Response: " + response);
-            }
-
             this.running = true;
 
         } catch (Exception e) {
@@ -120,7 +115,6 @@ public class RedisDatabase {
             clientResources.shutdown();
         }
 
-        logger.info("Redis connection closed!");
     }
 
     public void publish(String channel, byte[] message) {
@@ -161,12 +155,10 @@ public class RedisDatabase {
 
                 @Override
                 public void subscribed(byte[] ch, long count) {
-                    logger.info("Subscribed to channel: " + new String(ch, StandardCharsets.UTF_8));
                 }
 
                 @Override
                 public void unsubscribed(byte[] ch, long count) {
-                    logger.info("Unsubscribed from channel: " + new String(ch, StandardCharsets.UTF_8));
                 }
             });
 

@@ -51,10 +51,8 @@ public final class EntityPlayerSyncManager extends Manager {
     protected void onUnload() {
         running = false;
         exec.shutdownNow();
-        Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
-            entities.values().forEach(RemoteEntity::destroy);
-            entities.clear();
-        });
+        entities.values().forEach(RemoteEntity::destroy);
+        entities.clear();
     }
 
     private void broadcastLocal() {

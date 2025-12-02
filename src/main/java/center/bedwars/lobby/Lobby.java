@@ -4,9 +4,11 @@ import center.bedwars.lobby.command.CommandManager;
 import center.bedwars.lobby.configuration.ConfigurationManager;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.database.DatabaseManager;
+import center.bedwars.lobby.expansion.PlayerExpansion;
 import center.bedwars.lobby.listener.ListenerManager;
 import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.manager.ManagerStorage;
+import center.bedwars.lobby.nametag.NametagManager;
 import center.bedwars.lobby.nms.NMSManager;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.scoreboard.ScoreboardManager;
@@ -26,6 +28,8 @@ public final class Lobby extends JavaPlugin {
 
     @Getter
     private static ManagerStorage managerStorage;
+
+    private PlayerExpansion playerExpansion;
 
     @Override
     public void onEnable() {
@@ -52,6 +56,7 @@ public final class Lobby extends JavaPlugin {
 
         managerStorage.registerAndLoad(new ScoreboardManager());
         managerStorage.registerAndLoad(new TablistManager());
+        managerStorage.registerAndLoad(new NametagManager());
 
         managerStorage.registerAndLoad(new PlayerSyncManager());
         managerStorage.registerAndLoad(new EntityPlayerSyncManager());
@@ -59,21 +64,27 @@ public final class Lobby extends JavaPlugin {
 
         managerStorage.registerAndLoad(new ListenerManager());
 
-        managerStorage.setAllWaiting();
-        managerStorage.finishAll();
-
         ConfigurationManager.saveConfigurations();
         ConfigurationManager.reloadConfigurations();
 
-        getLogger().info("Lobby ID: " + SettingsConfiguration.LOBBY_ID);
         getLogger().info("BedWarsLobby enabled successfully!");
+        if (managerStorage.getManager(DependencyManager.class).getPlaceholderAPI().isPresent()) {
+            this.playerExpansion = new PlayerExpansion();
+            playerExpansion.register();
+        }
     }
 
     @Override
     public void onDisable() {
+        if (managerStorage.getManager(DependencyManager.class).getPlaceholderAPI() != null && managerStorage.getManager(DependencyManager.class).getPlaceholderAPI().isPresent()) {
+            if (playerExpansion != null) {
+                playerExpansion.unregister();
+            }
+        }
         if (managerStorage != null) {
             managerStorage.unloadAll();
         }
+
         getLogger().info("BedWarsLobby disabled!");
     }
 }

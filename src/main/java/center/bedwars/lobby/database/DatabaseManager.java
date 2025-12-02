@@ -22,7 +22,6 @@ public class DatabaseManager extends Manager {
         redis.connect();
         mongo.connect();
 
-        lobby.getLogger().info("Database connections established!");
     }
 
     @Override
@@ -35,7 +34,6 @@ public class DatabaseManager extends Manager {
             mongo.disconnect();
         }
 
-        lobby.getLogger().info("Database connections closed!");
     }
 
 }

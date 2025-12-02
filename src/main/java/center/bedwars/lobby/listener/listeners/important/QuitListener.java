@@ -1,6 +1,7 @@
 package center.bedwars.lobby.listener.listeners.important;
 
 import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.nametag.NametagManager;
 import center.bedwars.lobby.parkour.ParkourManager;
 import center.bedwars.lobby.scoreboard.ScoreboardManager;
 import center.bedwars.lobby.tablist.TablistManager;
@@ -15,11 +16,13 @@ public class QuitListener implements Listener {
     private final ParkourManager parkourManager;
     private final ScoreboardManager scoreboardManager;
     private final TablistManager tablistManager;
+    private final NametagManager nametagManager;
 
     public QuitListener() {
         this.parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
         this.scoreboardManager = Lobby.getManagerStorage().getManager(ScoreboardManager.class);
         this.tablistManager = Lobby.getManagerStorage().getManager(TablistManager.class);
+        this.nametagManager = Lobby.getManagerStorage().getManager(NametagManager.class);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -37,6 +40,10 @@ public class QuitListener implements Listener {
 
         if (tablistManager != null) {
             tablistManager.removeTablist(player);
+        }
+
+        if (nametagManager != null) {
+            nametagManager.removeNametag(player);
         }
     }
 }

@@ -2,13 +2,13 @@ package center.bedwars.lobby.configuration;
 
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.*;
+import center.bedwars.lobby.configuration.providers.GroupConfigProvider;
 import center.bedwars.lobby.manager.Manager;
 import net.j4c0b3y.api.config.ConfigHandler;
 import net.j4c0b3y.api.config.StaticConfig;
 
 import java.io.File;
 
-@SuppressWarnings({"unused"})
 public class ConfigurationManager extends Manager {
 
     private final Lobby lobby = Lobby.getINSTANCE();
@@ -19,11 +19,14 @@ public class ConfigurationManager extends Manager {
     private ItemsConfiguration itemsConfiguration;
     private ScoreboardConfiguration scoreboardConfiguration;
     private TablistConfiguration tablistConfiguration;
+    private NametagConfiguration nametagConfiguration;
 
     @Override
     protected void onLoad() {
         File folder = lobby.getDataFolder();
         configHandler = new ConfigHandler(lobby.getLogger());
+
+        registerProviders();
 
         this.settings = new SettingsConfiguration(folder, configHandler);
         this.settings.load();
@@ -42,6 +45,9 @@ public class ConfigurationManager extends Manager {
 
         this.scoreboardConfiguration = new ScoreboardConfiguration(folder, configHandler);
         this.scoreboardConfiguration.load();
+
+        this.nametagConfiguration = new NametagConfiguration(folder, configHandler);
+        this.nametagConfiguration.load();
     }
 
     @Override
@@ -50,6 +56,13 @@ public class ConfigurationManager extends Manager {
         languageConfiguration.load();
         soundConfiguration.load();
         itemsConfiguration.load();
+        tablistConfiguration.load();
+        scoreboardConfiguration.load();
+        nametagConfiguration.load();
+    }
+
+    private void registerProviders() {
+        configHandler.bind(NametagConfiguration.GroupConfig.class, new GroupConfigProvider.NametagGroupConfigProvider());
     }
 
     public static long reloadConfigurations() {
@@ -59,6 +72,7 @@ public class ConfigurationManager extends Manager {
             try {
                 config.load();
             } catch (Exception e) {
+                Lobby.getINSTANCE().getLogger().severe("Failed to reload config: " + config.getClass().getSimpleName());
                 e.printStackTrace();
             }
         }
@@ -69,7 +83,14 @@ public class ConfigurationManager extends Manager {
     public static long saveConfigurations() {
         long start = System.currentTimeMillis();
 
-        configHandler.getRegistered().forEach(StaticConfig::save);
+        for (StaticConfig config : configHandler.getRegistered()) {
+            try {
+                config.save();
+            } catch (Exception e) {
+                Lobby.getINSTANCE().getLogger().severe("Failed to save config: " + config.getClass().getSimpleName());
+                e.printStackTrace();
+            }
+        }
 
         return System.currentTimeMillis() - start;
     }
@@ -90,11 +111,8 @@ public class ConfigurationManager extends Manager {
 
         SettingsConfiguration.LOBBY_ID = preservedLobbyId;
 
-        Lobby.getINSTANCE().getLogger().info(
-                "Config sync completed - LOBBY_ID preserved: " + preservedLobbyId
-        );
+        Lobby.getINSTANCE().getLogger().info("Config sync completed - LOBBY_ID preserved: " + preservedLobbyId);
 
         return System.currentTimeMillis() - start;
     }
-
 }

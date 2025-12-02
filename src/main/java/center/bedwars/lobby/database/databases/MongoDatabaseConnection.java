@@ -42,7 +42,6 @@ public class MongoDatabaseConnection {
             this.database = mongoClient.getDatabase(dbName);
 
             database.runCommand(new Document("ping", 1));
-            logger.info("MongoDB connection established successfully!");
 
         } catch (Exception e) {
             logger.severe("Failed to connect to MongoDB: " + e.getMessage());
@@ -53,7 +52,6 @@ public class MongoDatabaseConnection {
     public void disconnect() {
         if (mongoClient != null) {
             mongoClient.close();
-            logger.info("MongoDB connection closed!");
         }
     }
 

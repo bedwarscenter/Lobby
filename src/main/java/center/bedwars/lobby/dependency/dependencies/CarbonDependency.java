@@ -21,14 +21,11 @@ public class CarbonDependency {
         boolean isPresent = false;
 
         try {
-            LOGGER.info("[" + DEPENDENCY_NAME + "] Attempting to load dependency...");
 
             Class.forName("xyz.refinedev.spigot.features.chunk.IChunkAPI");
-            LOGGER.info("[" + DEPENDENCY_NAME + "] IChunkAPI class found!");
 
             tempChunkRegistry = IChunkAPI.instance();
             if (tempChunkRegistry != null) {
-                LOGGER.info("[" + DEPENDENCY_NAME + "] IChunkAPI instance loaded successfully!");
                 isPresent = true;
             } else {
                 LOGGER.warning("[" + DEPENDENCY_NAME + "] IChunkAPI instance is null!");
@@ -36,10 +33,10 @@ public class CarbonDependency {
 
         } catch (NoClassDefFoundError e) {
             LOGGER.log(Level.WARNING, "[" + DEPENDENCY_NAME + "] NoClassDefFoundError: " + e.getMessage());
-            LOGGER.warning("[" + DEPENDENCY_NAME + "] Make sure Carbon plugin is installed!");
+            LOGGER.warning("[" + DEPENDENCY_NAME + "] Make sure you are using Carbon");
         } catch (ClassNotFoundException e) {
             LOGGER.log(Level.WARNING, "[" + DEPENDENCY_NAME + "] ClassNotFoundException: " + e.getMessage());
-            LOGGER.warning("[" + DEPENDENCY_NAME + "] Carbon plugin is not loaded!");
+            LOGGER.warning("[" + DEPENDENCY_NAME + "] You are not using Carbon");
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "[" + DEPENDENCY_NAME + "] Unexpected error while loading: ", e);
         }

@@ -16,8 +16,6 @@ public class DependencyManager extends Manager {
     private CitizensDependency citizens;
     private NMSDependency nms;
 
-    private PlayerExpansion playerExpansion;
-
     @Override
     protected void onLoad() throws Exception {
         this.carbon = new CarbonDependency();
@@ -26,24 +24,11 @@ public class DependencyManager extends Manager {
         this.nms = new NMSDependency();
         this.decentHolograms = new DecentHologramsDependency();
         this.citizens = new CitizensDependency();
-    }
-
-    @Override
-    protected void onFinish() {
         this.placeholderAPI = new PlaceholderAPIDependency();
-
-        if (placeholderAPI.isPresent()) {
-            this.playerExpansion = new PlayerExpansion();
-            this.playerExpansion.register();
-        }
     }
 
     @Override
     protected void onUnload() {
-        if (placeholderAPI != null && placeholderAPI.isPresent()) {
-            if (playerExpansion != null) {
-                playerExpansion.unregister();
-            }
-        }
+
     }
 }

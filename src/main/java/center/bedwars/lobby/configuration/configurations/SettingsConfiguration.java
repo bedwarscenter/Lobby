@@ -51,6 +51,13 @@ public class SettingsConfiguration extends StaticConfig {
         put("MVP++", "test");
     }};
 
+    @Comment("Ranks that should be fully disguised in tablist and nametag")
+    public static List<String> FULL_DISGUISE_RANKS = Arrays.asList(
+            "Owner",
+            "Admin",
+            "Mod"
+    );
+
     @Comment("Spawn location")
     public static String SPAWN_LOCATION = "0.5;60;0.5;world;0;0";
 
