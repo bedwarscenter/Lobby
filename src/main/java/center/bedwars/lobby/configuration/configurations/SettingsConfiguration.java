@@ -2,6 +2,7 @@ package center.bedwars.lobby.configuration.configurations;
 
 import net.j4c0b3y.api.config.ConfigHandler;
 import net.j4c0b3y.api.config.StaticConfig;
+import org.bukkit.Material;
 
 import java.io.File;
 import java.util.Arrays;
@@ -50,13 +51,6 @@ public class SettingsConfiguration extends StaticConfig {
         put("MVP+", "test");
         put("MVP++", "test");
     }};
-
-    @Comment("Ranks that should be fully disguised in tablist and nametag")
-    public static List<String> FULL_DISGUISE_RANKS = Arrays.asList(
-            "Owner",
-            "Admin",
-            "Mod"
-    );
 
     @Comment("Spawn location")
     public static String SPAWN_LOCATION = "0.5;60;0.5;world;0;0";
@@ -114,6 +108,32 @@ public class SettingsConfiguration extends StaticConfig {
 
         @Comment("Cooldown in milliseconds between visibility toggles")
         public static long TOGGLE_COOLDOWN_MILLIS = 3000L;
+    }
+
+    public static class JUMP_PAD {
+        @Comment("Block type for jump pad")
+        public static Material BLOCK_TYPE = Material.SLIME_BLOCK;
+
+        @Comment("Jump pad velocity X direction")
+        public static double VELOCITY_X = 1.0;
+
+        @Comment("Jump pad velocity Y direction (upward force)")
+        public static double VELOCITY_Y = 0.3;
+
+        @Comment("Jump pad velocity Z direction")
+        public static double VELOCITY_Z = 0.0;
+
+        @Comment("Jump pad velocity multiplier")
+        public static double VELOCITY_MULTIPLIER = 1.2;
+
+        @Comment("Sound effect when using jump pad")
+        public static String SOUND = "PISTON_EXTEND";
+
+        @Comment("Sound volume")
+        public static float SOUND_VOLUME = 1.0f;
+
+        @Comment("Sound pitch")
+        public static float SOUND_PITCH = 1.0f;
     }
 
 }

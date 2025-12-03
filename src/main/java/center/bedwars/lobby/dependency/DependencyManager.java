@@ -15,6 +15,7 @@ public class DependencyManager extends Manager {
     private DecentHologramsDependency decentHolograms;
     private CitizensDependency citizens;
     private NMSDependency nms;
+    private AlonsoLevelsDependency alonsoLevels;
 
     @Override
     protected void onLoad() throws Exception {
@@ -25,6 +26,7 @@ public class DependencyManager extends Manager {
         this.decentHolograms = new DecentHologramsDependency();
         this.citizens = new CitizensDependency();
         this.placeholderAPI = new PlaceholderAPIDependency();
+        this.alonsoLevels = new AlonsoLevelsDependency();
     }
 
     @Override

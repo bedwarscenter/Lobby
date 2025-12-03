@@ -1,5 +1,6 @@
 package center.bedwars.lobby.listener.listeners.important;
 
+import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.BlockFace;
@@ -10,7 +11,14 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.util.Vector;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public class MoveListener implements Listener {
+
+    private final Map<UUID, Long> jumpPadCooldowns = new HashMap<>();
+    private static final long COOLDOWN_MS = 500;
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onMove(PlayerMoveEvent event) {
@@ -18,11 +26,32 @@ public class MoveListener implements Listener {
 
         Material blockType = event.getTo().getBlock().getRelative(BlockFace.DOWN).getType();
 
-        if (blockType == Material.SLIME_BLOCK) {
+        if (blockType == SettingsConfiguration.JUMP_PAD.BLOCK_TYPE) {
+            UUID playerId = player.getUniqueId();
+            long currentTime = System.currentTimeMillis();
 
-            Vector direction = new Vector(1, 0.3, 0).multiply(1.2);
+            if (jumpPadCooldowns.containsKey(playerId)) {
+                long lastUse = jumpPadCooldowns.get(playerId);
+                if (currentTime - lastUse < COOLDOWN_MS) {
+                    return;
+                }
+            }
 
-            player.playSound(player.getLocation(), Sound.PISTON_EXTEND, 1f, 1f);
+            jumpPadCooldowns.put(playerId, currentTime);
+
+            Vector direction = new Vector(
+                    SettingsConfiguration.JUMP_PAD.VELOCITY_X,
+                    SettingsConfiguration.JUMP_PAD.VELOCITY_Y,
+                    SettingsConfiguration.JUMP_PAD.VELOCITY_Z
+            ).multiply(SettingsConfiguration.JUMP_PAD.VELOCITY_MULTIPLIER);
+
+            try {
+                Sound sound = Sound.valueOf(SettingsConfiguration.JUMP_PAD.SOUND);
+                player.playSound(player.getLocation(), sound,
+                        SettingsConfiguration.JUMP_PAD.SOUND_VOLUME,
+                        SettingsConfiguration.JUMP_PAD.SOUND_PITCH);
+            } catch (IllegalArgumentException ignored) {
+            }
 
             player.setVelocity(direction);
         }

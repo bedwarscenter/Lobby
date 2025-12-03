@@ -22,6 +22,7 @@ public class ListenerManager extends Manager {
     protected void onLoad() {
         registerListeners(
                 new JoinListener(),
+                new LevelChangeListener(),
                 new QuitListener(),
                 new MoveListener(),
                 new HotbarListener(),
@@ -29,7 +30,6 @@ public class ListenerManager extends Manager {
                 new ParkourListener(),
                 new WorldWeatherListener(),
                 new WorldDayListener(),
-                new WorldChangeListener(),
                 new PlayerEnvironmentListener(),
                 new PlayerSafetyListener(),
                 new PlayerRestrictionListener(),

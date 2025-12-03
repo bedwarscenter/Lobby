@@ -1,5 +1,6 @@
 package center.bedwars.lobby.manager.orphans;
 
+import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.manager.Manager;
 import center.bedwars.lobby.nms.NMSHelper;
@@ -88,9 +89,7 @@ public class PlayerVisibilityManager extends Manager {
                 continue;
             }
 
-            int entityId = target.getEntityId();
-            PacketPlayOutEntityDestroy destroyPacket = new PacketPlayOutEntityDestroy(entityId);
-            NMSHelper.sendPacket(player, destroyPacket);
+            player.hidePlayer(target);
         }
 
         setupEntityInterceptor(player);
@@ -103,13 +102,10 @@ public class PlayerVisibilityManager extends Manager {
         }
 
         hiddenPlayers.remove(player.getUniqueId());
-        toggleCooldowns.remove(player.getUniqueId());
         removeInterceptors(player);
 
         for (Player target : Bukkit.getOnlinePlayers()) {
             if (target.equals(player)) continue;
-
-            player.hidePlayer(target);
             player.showPlayer(target);
         }
     }
@@ -262,16 +258,28 @@ public class PlayerVisibilityManager extends Manager {
         return hiddenPlayers.contains(player.getUniqueId());
     }
 
-    public void handlePlayerJoin(Player player) {
-        for (Player hidden : Bukkit.getOnlinePlayers()) {
-            if (hiddenPlayers.contains(hidden.getUniqueId())) {
-                if (!player.hasPermission("bedwarslobby.staff")) {
-                    int entityId = player.getEntityId();
-                    PacketPlayOutEntityDestroy destroyPacket = new PacketPlayOutEntityDestroy(entityId);
-                    NMSHelper.sendPacket(hidden, destroyPacket);
+    public void handlePlayerJoin(Player joiningPlayer) {
+        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
+            for (Player viewer : Bukkit.getOnlinePlayers()) {
+                if (viewer.equals(joiningPlayer)) continue;
+
+                if (hiddenPlayers.contains(viewer.getUniqueId())) {
+                    if (!joiningPlayer.hasPermission("bedwarslobby.staff")) {
+                        viewer.hidePlayer(joiningPlayer);
+                    }
                 }
             }
-        }
+
+            for (Player target : Bukkit.getOnlinePlayers()) {
+                if (target.equals(joiningPlayer)) continue;
+
+                if (hiddenPlayers.contains(joiningPlayer.getUniqueId())) {
+                    if (!target.hasPermission("bedwarslobby.staff")) {
+                        joiningPlayer.hidePlayer(target);
+                    }
+                }
+            }
+        }, 1L);
     }
 
     public void handlePlayerQuit(Player player) {

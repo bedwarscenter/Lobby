@@ -1,9 +1,7 @@
-
 package center.bedwars.lobby.nametag;
 
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.NametagConfiguration;
-import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.dependency.DependencyManager;
 import center.bedwars.lobby.dependency.dependencies.PhoenixDependency;
 import center.bedwars.lobby.manager.Manager;
@@ -97,27 +95,18 @@ public class NametagManager extends Manager {
     }
 
     private NametagData formatNametag(Player player) {
-        String displayName = player.getName();
         String rankName = "Default";
         int priority = 0;
 
         PhoenixDependency phoenixDependency = getPhoenixDependency();
         if (phoenixDependency != null && phoenixDependency.isApiAvailable()) {
             Phoenix api = phoenixDependency.getApi();
-            IProfile profile = api.getProfileHandler().getProfile(player.getUniqueId());
-            IRank realRank = api.getGrantHandler().getHighestRank(player.getUniqueId());
+            UUID realUUID = getRealUUID(player, api);
+            IRank rank = api.getGrantHandler().getHighestRank(realUUID);
 
-            boolean isDisguised = profile != null && profile.getDisguiseData().isDisguised();
-            boolean shouldUseDisguise = !shouldShowRealIdentity(realRank);
-
-            if (isDisguised && shouldUseDisguise) {
-                IRank disguiseRank = api.getRankHandler().getRank(profile.getDisguiseData().getRankId());
-                displayName = profile.getDisguiseData().getDisguiseName();
-                rankName = disguiseRank != null ? disguiseRank.getName() : "Default";
-                priority = disguiseRank != null ? disguiseRank.getPriority() : 0;
-            } else if (realRank != null) {
-                rankName = realRank.getName();
-                priority = realRank.getPriority();
+            if (rank != null) {
+                rankName = rank.getName();
+                priority = rank.getPriority();
             }
         }
 
@@ -129,64 +118,24 @@ public class NametagManager extends Manager {
         return new NametagData(
                 ColorUtil.color(tagPrefix),
                 ColorUtil.color(tagSuffix),
-                displayName,
+                player.getName(),
                 priority
         );
     }
 
-    private boolean shouldShowRealIdentity(IRank rank) {
-        return rank != null && SettingsConfiguration.FULL_DISGUISE_RANKS.contains(rank.getName());
+    private UUID getRealUUID(Player player, Phoenix api) {
+        try {
+            IProfile profile = api.getProfileHandler().getProfile(player.getUniqueId());
+            if (profile != null && profile.getDisguiseData().isDisguised()) {
+                return Bukkit.getPlayer(profile.getDisguiseData().getRealName()).getUniqueId();
+            }
+        } catch (Exception ignored) {}
+
+        return player.getUniqueId();
     }
 
     private PhoenixDependency getPhoenixDependency() {
         DependencyManager dependencyManager = Lobby.getManagerStorage().getManager(DependencyManager.class);
         return dependencyManager != null ? dependencyManager.getPhoenix() : null;
-    }
-
-    /**
-     * Gets the rank name for a player (for use by TablistManager)
-     */
-    public String getPlayerRankName(Player player) {
-        PhoenixDependency phoenixDependency = getPhoenixDependency();
-        if (phoenixDependency == null || !phoenixDependency.isApiAvailable()) {
-            return "Default";
-        }
-
-        Phoenix api = phoenixDependency.getApi();
-        IProfile profile = api.getProfileHandler().getProfile(player.getUniqueId());
-        IRank realRank = api.getGrantHandler().getHighestRank(player.getUniqueId());
-
-        boolean isDisguised = profile != null && profile.getDisguiseData().isDisguised();
-        boolean shouldUseDisguise = !shouldShowRealIdentity(realRank);
-
-        if (isDisguised && shouldUseDisguise) {
-            IRank disguiseRank = api.getRankHandler().getRank(profile.getDisguiseData().getRankId());
-            return disguiseRank != null ? disguiseRank.getName() : "Default";
-        }
-
-        return realRank != null ? realRank.getName() : "Default";
-    }
-
-    /**
-     * Gets the display name for a player (considering disguise)
-     */
-    public String getPlayerDisplayName(Player player) {
-        PhoenixDependency phoenixDependency = getPhoenixDependency();
-        if (phoenixDependency == null || !phoenixDependency.isApiAvailable()) {
-            return player.getName();
-        }
-
-        Phoenix api = phoenixDependency.getApi();
-        IProfile profile = api.getProfileHandler().getProfile(player.getUniqueId());
-        IRank realRank = api.getGrantHandler().getHighestRank(player.getUniqueId());
-
-        boolean isDisguised = profile != null && profile.getDisguiseData().isDisguised();
-        boolean shouldUseDisguise = !shouldShowRealIdentity(realRank);
-
-        if (isDisguised && shouldUseDisguise) {
-            return profile.getDisguiseData().getDisguiseName();
-        }
-
-        return player.getName();
     }
 }

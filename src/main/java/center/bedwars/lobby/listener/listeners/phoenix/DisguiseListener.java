@@ -29,11 +29,12 @@ public class DisguiseListener implements Listener {
         Player player = Bukkit.getPlayer(event.getProfile().getUuid());
         if (player == null) return;
 
-        hotbarManager.giveLobbyHotbar(player);
-
         Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
-            updatePlayerDisplay(player);
-        }, 1L);
+            if (hotbarManager != null) {
+                hotbarManager.giveLobbyHotbar(player);
+            }
+            updateAllDisplays();
+        }, 3L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -41,25 +42,26 @@ public class DisguiseListener implements Listener {
         Player player = Bukkit.getPlayer(event.getProfile().getUuid());
         if (player == null) return;
 
-        hotbarManager.giveLobbyHotbar(player);
-
         Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
-            updatePlayerDisplay(player);
-        }, 1L);
+            if (hotbarManager != null) {
+                hotbarManager.giveLobbyHotbar(player);
+            }
+            updateAllDisplays();
+        }, 3L);
     }
 
-    private void updatePlayerDisplay(Player player) {
-        if (tablistManager != null) {
-            Bukkit.getOnlinePlayers().forEach(online -> {
-                tablistManager.removeTablist(online);
-                tablistManager.createTablist(online);
-            });
-        }
-
+    private void updateAllDisplays() {
         if (nametagManager != null) {
             Bukkit.getOnlinePlayers().forEach(online -> {
                 nametagManager.removeNametag(online);
                 nametagManager.createNametag(online);
+            });
+        }
+
+        if (tablistManager != null) {
+            Bukkit.getOnlinePlayers().forEach(online -> {
+                tablistManager.removeTablist(online);
+                tablistManager.createTablist(online);
             });
         }
     }

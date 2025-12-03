@@ -79,16 +79,20 @@ public class SortingManager {
 
         @Override
         public int compare(Player a, Player b, String rankA, String rankB) {
-            return Integer.compare(getPriority(rankA), getPriority(rankB));
+            int priorityA = getPriority(rankA);
+            int priorityB = getPriority(rankB);
+            return Integer.compare(priorityA, priorityB);
         }
 
         private int getPriority(String rankName) {
             for (int i = 0; i < groupPriorities.size(); i++) {
-                if (groupPriorities.get(i).contains(rankName)) {
-                    return i;
+                for (String group : groupPriorities.get(i)) {
+                    if (group.equalsIgnoreCase(rankName)) {
+                        return i;
+                    }
                 }
             }
-            return groupPriorities.size();
+            return Integer.MAX_VALUE;
         }
     }
 
