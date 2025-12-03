@@ -8,6 +8,7 @@ import center.bedwars.lobby.manager.orphans.HotbarManager;
 import center.bedwars.lobby.manager.orphans.PlayerVisibilityManager;
 import com.yapzhenyie.GadgetsMenu.api.GadgetsMenuAPI;
 import com.yapzhenyie.GadgetsMenu.player.PlayerManager;
+import de.marcely.bedwars.api.cosmetics.CosmeticsAPI;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -16,8 +17,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
-
-import java.lang.reflect.Method;
 
 public class HotbarListener implements Listener {
 
@@ -67,22 +66,7 @@ public class HotbarListener implements Listener {
         }
         if (displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.SHOP.DISPLAY_NAME))) {
             event.setCancelled(true);
-            try {
-                Class<?> cosmeticsAPIClass = Class.forName("de.marcely.bedwars.api.cosmetics.CosmeticsAPI");
-
-                Method getMethod = cosmeticsAPIClass.getMethod("get");
-                Object cosmeticsAPI = getMethod.invoke(null);
-
-                Method getShopByIdMethod = cosmeticsAPIClass.getMethod("getShopById", String.class);
-                Object shop = getShopByIdMethod.invoke(cosmeticsAPI, "main");
-
-                Class<?> shopClass = Class.forName("de.marcely.bedwars.api.cosmetics.shop.Shop");
-                Method openMethod = shopClass.getMethod("open", Player.class);
-                openMethod.invoke(shop, player);
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            CosmeticsAPI.get().getShopById("main").open(player);
             return;
         }
         if (displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.COLLECTIBLES.DISPLAY_NAME))) {

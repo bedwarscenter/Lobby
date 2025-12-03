@@ -26,6 +26,7 @@ dependencies {
     compileOnly "xyz.refinedev.phoenix:pxAPI:${project.findProperty("phoenixApiVersion")}"
     compileOnly "org.projectlombok:lombok:${project.findProperty("lombokVersion")}"
     compileOnly "de.marcely.bedwars:API:${project.findProperty("mbedwarsApiVersion")}"
+    compileOnly "de.marcely.bedwars.addon:Cosmetics-API:${project.findProperty("cosmeticsApiVersion")}"
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
 
     implementation("org.latencyutils:LatencyUtils:${project.findProperty("latencyVersion")}")
