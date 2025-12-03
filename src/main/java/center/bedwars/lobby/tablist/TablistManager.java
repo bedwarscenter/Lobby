@@ -139,6 +139,7 @@ public class TablistManager extends Manager {
             entries.add(new PlayerEntry(player, formattedName, 0, null));
         }
 
+        // Sıralama için gerçek UUID ve rank kullan
         entries.sort((a, b) -> {
             UUID realUUIDA = getRealUUID(a.player());
             UUID realUUIDB = getRealUUID(b.player());
@@ -174,9 +175,9 @@ public class TablistManager extends Manager {
             Phoenix api = phoenixDependency.getApi();
             IProfile profile = api.getProfileHandler().getProfile(player.getUniqueId());
             if (profile != null && profile.getDisguiseData().isDisguised()) {
-                Player realPlayer = Bukkit.getPlayer(profile.getDisguiseData().getRealName());
-                if (realPlayer != null) {
-                    return realPlayer.getUniqueId();
+                UUID realUUID = Bukkit.getPlayer(profile.getDisguiseData().getRealName()).getUniqueId();
+                if (realUUID != null) {
+                    return realUUID;
                 }
             }
         } catch (Exception ignored) {}

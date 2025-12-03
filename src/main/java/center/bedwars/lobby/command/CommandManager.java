@@ -1,13 +1,11 @@
 package center.bedwars.lobby.command;
 
 import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.command.commands.BedWarsLobbyCommand;
-import center.bedwars.lobby.command.commands.ParkourCommand;
-import center.bedwars.lobby.command.commands.SyncCommand;
-import center.bedwars.lobby.command.commands.SpawnCommand;
+import center.bedwars.lobby.command.commands.*;
 import center.bedwars.lobby.manager.Manager;
 import lombok.Getter;
 import net.j4c0b3y.api.command.bukkit.BukkitCommandHandler;
+import org.bukkit.command.defaults.TeleportCommand;
 
 @Getter
 public class CommandManager extends Manager {
@@ -22,6 +20,8 @@ public class CommandManager extends Manager {
         bukkitCommandHandler.register(new ParkourCommand());
         bukkitCommandHandler.register(new SyncCommand());
         bukkitCommandHandler.register(new SpawnCommand());
+        bukkitCommandHandler.register(new CosmeticsCommand());
+        bukkitCommandHandler.register(new CollectiblesCommand());
     }
 
     @Override
