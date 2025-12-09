@@ -1,14 +1,15 @@
 package center.bedwars.lobby.command.commands;
 
 import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.configuration.ConfigurationManager;
+import center.bedwars.lobby.configuration.IConfigurationService;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
-import center.bedwars.lobby.parkour.ParkourManager;
-import center.bedwars.lobby.sync.LobbySyncManager;
+import center.bedwars.lobby.parkour.IParkourService;
+import center.bedwars.lobby.sync.ILobbySyncService;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.handlers.ChunkSnapshotSyncHandler;
 import center.bedwars.lobby.sync.serialization.Serializer;
 import center.bedwars.lobby.util.ColorUtil;
+import com.google.inject.Inject;
 import net.j4c0b3y.api.command.annotation.command.Command;
 import net.j4c0b3y.api.command.annotation.command.Requires;
 import net.j4c0b3y.api.command.annotation.parameter.Default;
@@ -29,10 +30,18 @@ import java.util.Map;
 @Requires("bedwarslobby.command.sync")
 public class SyncCommand {
 
-    private final Lobby lobby = Lobby.getINSTANCE();
+    private final Lobby lobby;
+    private final ILobbySyncService syncService;
+    private final IConfigurationService configService;
+    private final IParkourService parkourService;
 
-    private LobbySyncManager getSyncManager() {
-        return Lobby.getManagerStorage().getManager(LobbySyncManager.class);
+    @Inject
+    public SyncCommand(Lobby lobby, ILobbySyncService syncService,
+            IConfigurationService configService, IParkourService parkourService) {
+        this.lobby = lobby;
+        this.syncService = syncService;
+        this.configService = configService;
+        this.parkourService = parkourService;
     }
 
     @Command(name = "")
@@ -52,12 +61,11 @@ public class SyncCommand {
     public void configPush(@Sender Player sender) {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_PUSHING);
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
-            long reloadTime = ConfigurationManager.reloadConfigurations();
-            getSyncManager().broadcastEvent(SyncEventType.CONFIG_PUSH, new byte[0]);
-            Bukkit.getScheduler().runTask(lobby, () ->
-                    ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_PUSHED
-                            .replace("%time%", String.valueOf(reloadTime)))
-            );
+            long reloadTime = configService.reloadConfigurations();
+            syncService.broadcastEvent(SyncEventType.CONFIG_PUSH, new byte[0]);
+            Bukkit.getScheduler().runTask(lobby,
+                    () -> ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.CONFIG_PUSHED
+                            .replace("%time%", String.valueOf(reloadTime))));
         });
     }
 
@@ -79,19 +87,17 @@ public class SyncCommand {
                 Serializer.ChunkData chunkData = new Serializer.ChunkData(chunkX, chunkZ, snapshotData);
                 byte[] serialized = Serializer.serialize(chunkData);
 
-                getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, serialized);
+                syncService.broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, serialized);
 
-                Bukkit.getScheduler().runTask(lobby, () ->
-                        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_SYNCED
+                Bukkit.getScheduler().runTask(lobby,
+                        () -> ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_SYNCED
                                 .replace("%x%", String.valueOf(chunkX))
                                 .replace("%z%", String.valueOf(chunkZ))
-                                .replace("%size%", String.format("%.2f", snapshotData.length / 1024.0)))
-                );
+                                .replace("%size%", String.format("%.2f", snapshotData.length / 1024.0))));
             } catch (Exception e) {
-                Bukkit.getScheduler().runTask(lobby, () ->
-                        ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_FAILED
-                                .replace("%error%", e.getMessage()))
-                );
+                Bukkit.getScheduler().runTask(lobby,
+                        () -> ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.CHUNK_FAILED
+                                .replace("%error%", e.getMessage())));
                 e.printStackTrace();
             }
         });
@@ -132,26 +138,24 @@ public class SyncCommand {
                         Serializer.ChunkData chunkData = new Serializer.ChunkData(chunkX, chunkZ, snapshotData);
                         byte[] serialized = Serializer.serialize(chunkData);
 
-                        getSyncManager().broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, serialized);
+                        syncService.broadcastEvent(SyncEventType.CHUNK_SNAPSHOT, serialized);
 
                         synced++;
                         totalSize += snapshotData.length;
                         Thread.sleep(10);
                     } catch (Exception e) {
                         lobby.getLogger().warning(String.format(
-                                "Failed to sync chunk [%d, %d]: %s", chunkX, chunkZ, e.getMessage()
-                        ));
+                                "Failed to sync chunk [%d, %d]: %s", chunkX, chunkZ, e.getMessage()));
                     }
                 }
             }
 
             final int finalSynced = synced;
             final long finalSize = totalSize;
-            Bukkit.getScheduler().runTask(lobby, () ->
-                    ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.AREA_SYNCED
+            Bukkit.getScheduler().runTask(lobby,
+                    () -> ColorUtil.sendMessage(player, LanguageConfiguration.COMMAND.SYNC_COMMAND.AREA_SYNCED
                             .replace("%chunks%", String.valueOf(finalSynced))
-                            .replace("%size%", String.format("%.2f", finalSize / 1024.0)))
-            );
+                            .replace("%size%", String.format("%.2f", finalSize / 1024.0))));
         });
     }
 
@@ -190,15 +194,13 @@ public class SyncCommand {
                 worldData.thundering = world.isThundering();
 
                 byte[] serialized = Serializer.serialize(worldData);
-                getSyncManager().broadcastEvent(SyncEventType.WORLD_SYNC, serialized);
+                syncService.broadcastEvent(SyncEventType.WORLD_SYNC, serialized);
 
-                Bukkit.getScheduler().runTask(lobby, () ->
-                        ColorUtil.sendMessage(player, "&aWorld settings synchronized successfully!")
-                );
+                Bukkit.getScheduler().runTask(lobby,
+                        () -> ColorUtil.sendMessage(player, "&aWorld settings synchronized successfully!"));
             } catch (Exception e) {
-                Bukkit.getScheduler().runTask(lobby, () ->
-                        ColorUtil.sendMessage(player, "&cFailed to sync world: " + e.getMessage())
-                );
+                Bukkit.getScheduler().runTask(lobby,
+                        () -> ColorUtil.sendMessage(player, "&cFailed to sync world: " + e.getMessage()));
                 e.printStackTrace();
             }
         });
@@ -207,11 +209,10 @@ public class SyncCommand {
     @Command(name = "parkour")
     public void parkourSync(@Sender Player player) {
         ColorUtil.sendMessage(player, "&eStarting parkour synchronization...");
-        ParkourManager parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
 
         Bukkit.getScheduler().runTask(lobby, () -> {
-            parkourManager.scheduleParkourRefresh();
-            getSyncManager().broadcastEvent(SyncEventType.PARKOUR_SYNC, new byte[0]);
+            parkourService.refreshParkours();
+            syncService.broadcastEvent(SyncEventType.PARKOUR_SYNC, new byte[0]);
             ColorUtil.sendMessage(player, "&aParkour courses synchronized successfully!");
         });
     }
@@ -219,7 +220,7 @@ public class SyncCommand {
     @Command(name = "full")
     public void fullSync(@Sender Player sender) {
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SYNCING);
-        getSyncManager().performFullSync();
+        syncService.performFullSync();
         ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.SYNC_COMMAND.FULL_SENT);
     }
 }

@@ -1,7 +1,7 @@
 package center.bedwars.lobby.listener.listeners.sync;
 
-import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.sync.PlayerSyncManager;
+import center.bedwars.lobby.sync.IPlayerSyncService;
+import com.google.inject.Inject;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -10,19 +10,20 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 public class PlayerSyncListener implements Listener {
 
-    private final PlayerSyncManager playerSyncManager;
+    private final IPlayerSyncService playerSyncService;
 
-    public PlayerSyncListener() {
-        this.playerSyncManager = Lobby.getManagerStorage().getManager(PlayerSyncManager.class);
+    @Inject
+    public PlayerSyncListener(IPlayerSyncService playerSyncService) {
+        this.playerSyncService = playerSyncService;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        playerSyncManager.handlePlayerJoin(event.getPlayer());
+        playerSyncService.handlePlayerJoin(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        playerSyncManager.handlePlayerQuit(event.getPlayer());
+        playerSyncService.handlePlayerQuit(event.getPlayer());
     }
 }

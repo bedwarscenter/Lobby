@@ -1,9 +1,9 @@
 package center.bedwars.lobby.listener.listeners.general;
 
-import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
-import center.bedwars.lobby.manager.orphans.HotbarManager;
+import center.bedwars.lobby.hotbar.IHotbarService;
 import center.bedwars.lobby.nms.NMSHelper;
+import com.google.inject.Inject;
 import net.minecraft.server.v1_8_R3.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -16,6 +16,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.*;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.ExplosionPrimeEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -30,10 +32,11 @@ public class PlayerRestrictionListener implements Listener {
 
     private static final String INTERACTION_HANDLER = "bwl_hotbar_block";
     private final Map<UUID, Map<Long, Material>> fakeBlocks = new HashMap<>();
-    private final HotbarManager hotbarManager;
+    private final IHotbarService hotbarService;
 
-    public PlayerRestrictionListener() {
-        this.hotbarManager = Lobby.getManagerStorage().getManager(HotbarManager.class);
+    @Inject
+    public PlayerRestrictionListener(IHotbarService hotbarService) {
+        this.hotbarService = hotbarService;
         Bukkit.getOnlinePlayers().forEach(this::registerPacketInterceptor);
     }
 
@@ -133,6 +136,17 @@ public class PlayerRestrictionListener implements Listener {
         event.setCancelled(true);
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onEntityExplode(EntityExplodeEvent event) {
+        event.setCancelled(true);
+        event.blockList().clear();
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onExplosionPrime(ExplosionPrimeEvent event) {
+        event.setCancelled(true);
+    }
+
     @EventHandler(priority = EventPriority.LOW)
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
@@ -181,8 +195,7 @@ public class PlayerRestrictionListener implements Listener {
                 player,
                 INTERACTION_HANDLER,
                 PacketPlayInBlockPlace.class,
-                (p, packet) -> modifyPacketAnimation(packet)
-        );
+                (p, packet) -> modifyPacketAnimation(packet));
     }
 
     private void modifyPacketAnimation(PacketPlayInBlockPlace packet) {
@@ -190,7 +203,7 @@ public class PlayerRestrictionListener implements Listener {
             return;
         }
 
-        ItemStack nmsItem = packet.getItemStack();
+        net.minecraft.server.v1_8_R3.ItemStack nmsItem = packet.getItemStack();
         if (nmsItem == null) {
             return;
         }
@@ -200,11 +213,11 @@ public class PlayerRestrictionListener implements Listener {
             return;
         }
 
-        if (hotbarManager == null) {
+        if (hotbarService == null) {
             return;
         }
 
-        if (hotbarManager.isParkourItem(bukkitItem)) {
+        if (hotbarService.isParkourItem(bukkitItem)) {
             return;
         }
 
@@ -239,8 +252,7 @@ public class PlayerRestrictionListener implements Listener {
     private void sendFakeBlockChange(Player player, Block block, Material material) {
         PacketPlayOutBlockChange packet = new PacketPlayOutBlockChange(
                 ((CraftWorld) block.getWorld()).getHandle(),
-                new BlockPosition(block.getX(), block.getY(), block.getZ())
-        );
+                new BlockPosition(block.getX(), block.getY(), block.getZ()));
 
         net.minecraft.server.v1_8_R3.Block nmsBlock = net.minecraft.server.v1_8_R3.Block.getById(material.getId());
         IBlockData blockData = nmsBlock.getBlockData();
@@ -273,18 +285,19 @@ public class PlayerRestrictionListener implements Listener {
     private boolean isInteractable(Material type) {
         return switch (type) {
             case WOODEN_DOOR, IRON_DOOR, TRAP_DOOR, FENCE_GATE, CHEST, TRAPPED_CHEST, FURNACE, BURNING_FURNACE,
-                 DISPENSER, DROPPER, HOPPER, BREWING_STAND, ENCHANTMENT_TABLE, ANVIL, BEACON, LEVER, STONE_BUTTON,
-                 WOOD_BUTTON, WORKBENCH, ENDER_CHEST, DRAGON_EGG, DIODE_BLOCK_OFF, DIODE_BLOCK_ON,
-                 REDSTONE_COMPARATOR_OFF, REDSTONE_COMPARATOR_ON -> true;
+                    DISPENSER, DROPPER, HOPPER, BREWING_STAND, ENCHANTMENT_TABLE, ANVIL, BEACON, LEVER, STONE_BUTTON,
+                    WOOD_BUTTON, WORKBENCH, ENDER_CHEST, DRAGON_EGG, DIODE_BLOCK_OFF, DIODE_BLOCK_ON,
+                    REDSTONE_COMPARATOR_OFF, REDSTONE_COMPARATOR_ON ->
+                true;
             default -> false;
         };
     }
 
     private boolean isLobbyItem(org.bukkit.inventory.ItemStack item) {
-        if (hotbarManager == null) {
+        if (hotbarService == null) {
             return false;
         }
-        return hotbarManager.isLobbyItem(item);
+        return hotbarService.isLobbyItem(item);
     }
 
     private void cleanupPlayer(Player player) {

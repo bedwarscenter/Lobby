@@ -16,21 +16,29 @@ public class ChunkSnapshotSyncHandler implements ISyncHandler {
 
     private static final int COMPRESSION_LEVEL = Deflater.BEST_SPEED;
 
+    private final Lobby plugin;
+
+    @com.google.inject.Inject
+    public ChunkSnapshotSyncHandler(Lobby plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public void handle(SyncEvent event) {
         try {
             Serializer.ChunkData chunkData = Serializer.deserialize(event.getData(), Serializer.ChunkData.class);
 
-            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
                 try {
-                    org.bukkit.Chunk bukkitChunk = Bukkit.getWorld("world").getChunkAt(chunkData.chunkX, chunkData.chunkZ);
+                    org.bukkit.Chunk bukkitChunk = Bukkit.getWorld("world").getChunkAt(chunkData.chunkX,
+                            chunkData.chunkZ);
                     if (!bukkitChunk.isLoaded()) {
                         bukkitChunk.load(true);
                     }
                     restoreChunk(((CraftChunk) bukkitChunk).getHandle(), chunkData.snapshotData);
                     bukkitChunk.getWorld().refreshChunk(chunkData.chunkX, chunkData.chunkZ);
                 } catch (Exception e) {
-                    Lobby.getINSTANCE().getLogger().warning("Failed to restore chunk: " + e.getMessage());
+                    plugin.getLogger().warning("Failed to restore chunk: " + e.getMessage());
                 }
             });
         } catch (Exception e) {
@@ -42,7 +50,7 @@ public class ChunkSnapshotSyncHandler implements ISyncHandler {
         Chunk nmsChunk = ((CraftChunk) bukkitChunk).getHandle();
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             DataOutputStream dos = new DataOutputStream(baos)) {
+                DataOutputStream dos = new DataOutputStream(baos)) {
 
             ChunkSection[] sections = nmsChunk.getSections();
             dos.writeByte(sections.length);
@@ -71,7 +79,7 @@ public class ChunkSnapshotSyncHandler implements ISyncHandler {
 
     private static byte[] serializeSection(ChunkSection section) throws IOException {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             DataOutputStream dos = new DataOutputStream(baos)) {
+                DataOutputStream dos = new DataOutputStream(baos)) {
 
             char[] blockIds = section.getIdArray();
             dos.writeInt(blockIds.length);

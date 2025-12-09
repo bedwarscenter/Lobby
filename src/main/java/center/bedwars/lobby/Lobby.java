@@ -1,89 +1,106 @@
 package center.bedwars.lobby;
 
-import center.bedwars.lobby.command.CommandManager;
-import center.bedwars.lobby.configuration.ConfigurationManager;
+import center.bedwars.lobby.command.ICommandService;
+import center.bedwars.lobby.configuration.IConfigurationService;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
-import center.bedwars.lobby.database.DatabaseManager;
+import center.bedwars.lobby.database.IDatabaseService;
+import center.bedwars.lobby.dependency.IDependencyService;
 import center.bedwars.lobby.expansion.PlayerExpansion;
-import center.bedwars.lobby.listener.ListenerManager;
-import center.bedwars.lobby.dependency.DependencyManager;
-import center.bedwars.lobby.manager.ManagerStorage;
-import center.bedwars.lobby.nametag.NametagManager;
-import center.bedwars.lobby.nms.NMSManager;
-import center.bedwars.lobby.parkour.ParkourManager;
-import center.bedwars.lobby.scoreboard.ScoreboardManager;
-import center.bedwars.lobby.tablist.TablistManager;
-import center.bedwars.lobby.sync.LobbySyncManager;
-import center.bedwars.lobby.sync.EntityPlayerSyncManager;
-import center.bedwars.lobby.sync.PlayerSyncManager;
-import center.bedwars.lobby.manager.orphans.HotbarManager;
-import center.bedwars.lobby.manager.orphans.PlayerVisibilityManager;
+import center.bedwars.lobby.hotbar.IHotbarService;
+import center.bedwars.lobby.injection.LobbyModule;
+import center.bedwars.lobby.injection.ServiceManager;
+import center.bedwars.lobby.listener.IListenerService;
+import center.bedwars.lobby.menu.IMenuService;
+import center.bedwars.lobby.nametag.INametagService;
+import center.bedwars.lobby.nms.INMSService;
+import center.bedwars.lobby.parkour.IParkourService;
+import center.bedwars.lobby.scoreboard.IScoreboardService;
+import center.bedwars.lobby.sync.ILobbySyncService;
+import center.bedwars.lobby.sync.IPlayerSyncService;
+import center.bedwars.lobby.tablist.ITablistService;
+import center.bedwars.lobby.visibility.IPlayerVisibilityService;
+import center.bedwars.lobby.snow.ISnowService;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
 import lombok.Getter;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class Lobby extends JavaPlugin {
 
     @Getter
-    private static Lobby INSTANCE;
+    private static Lobby instance;
 
     @Getter
-    private static ManagerStorage managerStorage;
+    private static Injector injector;
+
+    @Getter
+    private static ServiceManager serviceManager;
 
     private PlayerExpansion playerExpansion;
 
     @Override
     public void onEnable() {
-        INSTANCE = this;
-        managerStorage = new ManagerStorage();
+        instance = this;
+        injector = Guice.createInjector(new LobbyModule(this));
+        serviceManager = new ServiceManager(injector, getLogger());
 
-        managerStorage.registerAndLoad(new ConfigurationManager());
-        managerStorage.registerAndLoad(new DependencyManager());
+        serviceManager.enable(IConfigurationService.class);
+        serviceManager.enable(IDependencyService.class);
 
-        SettingsConfiguration.LOBBY_ID = managerStorage
-                .getManager(DependencyManager.class)
+        SettingsConfiguration.LOBBY_ID = serviceManager
+                .get(IDependencyService.class)
                 .getPhoenix()
                 .getApi()
                 .getNetworkHandler()
                 .getServerName();
 
-        managerStorage.registerAndLoad(new NMSManager());
-        managerStorage.registerAndLoad(new DatabaseManager());
+        serviceManager.enable(INMSService.class);
+        serviceManager.enable(IDatabaseService.class);
 
-        managerStorage.registerAndLoad(new CommandManager());
-        managerStorage.registerAndLoad(new PlayerVisibilityManager());
-        managerStorage.registerAndLoad(new HotbarManager());
-        managerStorage.registerAndLoad(new ParkourManager());
+        serviceManager.enable(ICommandService.class);
+        serviceManager.enable(IPlayerVisibilityService.class);
+        serviceManager.enable(IHotbarService.class);
+        serviceManager.enable(IParkourService.class);
+        serviceManager.enable(IMenuService.class);
 
-        managerStorage.registerAndLoad(new ScoreboardManager());
-        managerStorage.registerAndLoad(new TablistManager());
-        managerStorage.registerAndLoad(new NametagManager());
+        serviceManager.enable(IScoreboardService.class);
+        serviceManager.enable(ITablistService.class);
+        serviceManager.enable(INametagService.class);
 
-        managerStorage.registerAndLoad(new PlayerSyncManager());
-        managerStorage.registerAndLoad(new EntityPlayerSyncManager());
-        managerStorage.registerAndLoad(new LobbySyncManager());
+        serviceManager.enable(IPlayerSyncService.class);
+        serviceManager.enable(ILobbySyncService.class);
+        serviceManager.enable(ISnowService.class);
 
-        managerStorage.registerAndLoad(new ListenerManager());
+        serviceManager.enable(IListenerService.class);
 
-        ConfigurationManager.saveConfigurations();
-        ConfigurationManager.reloadConfigurations();
+        IConfigurationService configService = serviceManager.get(IConfigurationService.class);
+        configService.saveConfigurations();
+        configService.reloadConfigurations();
 
         getLogger().info("BedWarsLobby enabled successfully!");
-        if (managerStorage.getManager(DependencyManager.class).getPlaceholderAPI().isPresent()) {
+
+        if (serviceManager.get(IDependencyService.class).getPlaceholderAPI().isPresent()) {
             this.playerExpansion = new PlayerExpansion();
             playerExpansion.register();
         }
+
+        getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
     }
 
     @Override
     public void onDisable() {
-        if (managerStorage.getManager(DependencyManager.class).getPlaceholderAPI() != null && managerStorage.getManager(DependencyManager.class).getPlaceholderAPI().isPresent()) {
+        IDependencyService depService = serviceManager.get(IDependencyService.class);
+        if (depService.getPlaceholderAPI() != null && depService.getPlaceholderAPI().isPresent()) {
             if (playerExpansion != null) {
                 playerExpansion.unregister();
             }
         }
-        if (managerStorage != null) {
-            managerStorage.unloadAll();
+
+        if (serviceManager != null) {
+            serviceManager.disableAll();
         }
+
+        getServer().getMessenger().unregisterOutgoingPluginChannel(this, "BungeeCord");
 
         getLogger().info("BedWarsLobby disabled!");
     }

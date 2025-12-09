@@ -1,10 +1,10 @@
 package center.bedwars.lobby.listener.listeners.general;
 
-import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
-import center.bedwars.lobby.parkour.ParkourManager;
+import center.bedwars.lobby.parkour.IParkourService;
 import center.bedwars.lobby.parkour.session.ParkourSession;
 import center.bedwars.lobby.util.SpawnUtil;
+import com.google.inject.Inject;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -14,23 +14,19 @@ import org.bukkit.event.player.PlayerMoveEvent;
 
 public class PlayerSafetyListener implements Listener {
 
-    private final ParkourManager parkourManager;
+    private final IParkourService parkourService;
 
-    public PlayerSafetyListener() {
-        this.parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
+    @Inject
+    public PlayerSafetyListener(IParkourService parkourService) {
+        this.parkourService = parkourService;
     }
 
     @EventHandler
-    public void onFallDamage(EntityDamageEvent event) {
+    public void onEntityDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player)) {
             return;
         }
-        if (!SettingsConfiguration.PLAYER.DISABLE_FALL_DAMAGE) {
-            return;
-        }
-        if (event.getCause() == EntityDamageEvent.DamageCause.FALL) {
-            event.setCancelled(true);
-        }
+        event.setCancelled(true);
     }
 
     @EventHandler
@@ -42,15 +38,16 @@ public class PlayerSafetyListener implements Listener {
             return;
         }
 
-        boolean crossedVoid = from.getY() > SettingsConfiguration.PLAYER.VOID_Y && to.getY() <= SettingsConfiguration.PLAYER.VOID_Y;
+        boolean crossedVoid = from.getY() > SettingsConfiguration.PLAYER.VOID_Y
+                && to.getY() <= SettingsConfiguration.PLAYER.VOID_Y;
         if (!crossedVoid) {
             return;
         }
 
-        if (parkourManager != null) {
-            ParkourSession session = parkourManager.getSessionManager().getSession(player);
+        if (parkourService != null) {
+            ParkourSession session = parkourService.getSession(player);
             if (session != null) {
-                parkourManager.teleportToCheckpoint(player);
+                parkourService.teleportToCheckpoint(player);
                 return;
             }
         }
@@ -60,4 +57,3 @@ public class PlayerSafetyListener implements Listener {
         }
     }
 }
-

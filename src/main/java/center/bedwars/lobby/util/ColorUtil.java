@@ -11,10 +11,21 @@ import org.bukkit.entity.Player;
 @SuppressWarnings("unused")
 public final class ColorUtil {
 
-    private ColorUtil() {}
+    private ColorUtil() {
+    }
 
     public static String color(String text) {
         return ChatColor.translateAlternateColorCodes('&', text);
+    }
+
+    public static java.util.List<String> colorList(java.util.List<String> list) {
+        if (list == null)
+            return new java.util.ArrayList<>();
+        java.util.List<String> result = new java.util.ArrayList<>();
+        for (String s : list) {
+            result.add(color(s));
+        }
+        return result;
     }
 
     public static void sendMessage(CommandSender sender, String text) {
@@ -29,7 +40,7 @@ public final class ColorUtil {
     }
 
     public static void sendTitle(Player player, String title, String subtitle,
-                                 int fadeIn, int stay, int fadeOut) {
+            int fadeIn, int stay, int fadeOut) {
         CraftPlayer cp = (CraftPlayer) player;
         cp.getHandle().playerConnection.sendPacket(
                 new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.TITLE,

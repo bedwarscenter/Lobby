@@ -2,7 +2,7 @@ package center.bedwars.lobby.parkour.task;
 
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.nms.NMSHelper;
-import center.bedwars.lobby.parkour.ParkourManager;
+
 import center.bedwars.lobby.parkour.session.ParkourSession;
 import center.bedwars.lobby.util.ColorUtil;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
@@ -13,17 +13,18 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 public class ParkourActionBarTask extends BukkitRunnable {
 
-    private final ParkourManager parkourManager;
+    private final center.bedwars.lobby.parkour.ParkourService parkourService;
 
-    public ParkourActionBarTask(ParkourManager parkourManager) {
-        this.parkourManager = parkourManager;
+    public ParkourActionBarTask(center.bedwars.lobby.parkour.ParkourService parkourService) {
+        this.parkourService = parkourService;
     }
 
     @Override
     public void run() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            ParkourSession session = parkourManager.getSessionManager().getSession(player);
-            if (session == null) continue;
+            ParkourSession session = parkourService.getSession(player);
+            if (session == null)
+                continue;
 
             long elapsed = session.getElapsedTime();
             int current = session.getReachedCheckpoints().size();

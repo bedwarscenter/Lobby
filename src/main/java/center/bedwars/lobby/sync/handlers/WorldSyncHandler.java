@@ -10,14 +10,22 @@ import org.bukkit.WorldBorder;
 
 public class WorldSyncHandler implements ISyncHandler {
 
+    private final Lobby plugin;
+
+    @com.google.inject.Inject
+    public WorldSyncHandler(Lobby plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public void handle(SyncEvent event) {
         try {
             Serializer.WorldSyncData data = Serializer.deserialize(event.getData(), Serializer.WorldSyncData.class);
             World world = Bukkit.getWorld(data.worldName);
-            if (world == null) return;
+            if (world == null)
+                return;
 
-            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
                 try {
                     if (data.border != null) {
                         WorldBorder border = world.getWorldBorder();

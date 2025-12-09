@@ -1,9 +1,11 @@
 package center.bedwars.lobby.sync.handlers;
 
 import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.dependency.IDependencyService;
 import center.bedwars.lobby.sync.SyncEvent;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.serialization.Serializer;
+import com.google.inject.Inject;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCRegistry;
 import net.citizensnpcs.trait.SkinTrait;
@@ -13,13 +15,13 @@ import org.bukkit.entity.EntityType;
 
 public class NPCSyncHandler implements ISyncHandler {
 
+    private final Lobby plugin;
     private final NPCRegistry registry;
 
-    public NPCSyncHandler() {
-        this.registry = Lobby.getManagerStorage()
-                .getManager(center.bedwars.lobby.dependency.DependencyManager.class)
-                .getCitizens()
-                .getNpcRegistry();
+    @Inject
+    public NPCSyncHandler(Lobby plugin, IDependencyService dependencyService) {
+        this.plugin = plugin;
+        this.registry = dependencyService.getCitizens().getNpcRegistry();
     }
 
     @Override
@@ -27,7 +29,7 @@ public class NPCSyncHandler implements ISyncHandler {
         try {
             Serializer.NPCData npcData = Serializer.deserialize(event.getData(), Serializer.NPCData.class);
 
-            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
                 try {
                     if (event.getType() == SyncEventType.NPC_CREATE) {
                         handleCreate(npcData);
@@ -37,7 +39,7 @@ public class NPCSyncHandler implements ISyncHandler {
                         handleUpdate(npcData);
                     }
                 } catch (Exception e) {
-                    Lobby.getINSTANCE().getLogger().warning("Failed to sync NPC: " + e.getMessage());
+                    plugin.getLogger().warning("Failed to sync NPC: " + e.getMessage());
                 }
             });
         } catch (Exception e) {
@@ -47,7 +49,8 @@ public class NPCSyncHandler implements ISyncHandler {
 
     private void handleCreate(Serializer.NPCData data) {
         Location loc = data.location.toLocation(Bukkit.getServer());
-        if (loc == null) return;
+        if (loc == null)
+            return;
 
         NPC existingNpc = findNPC(data.npcId);
         if (existingNpc != null) {
@@ -71,7 +74,8 @@ public class NPCSyncHandler implements ISyncHandler {
 
     private void handleUpdate(Serializer.NPCData data) {
         NPC npc = findNPC(data.npcId);
-        if (npc == null) return;
+        if (npc == null)
+            return;
 
         Location loc = data.location.toLocation(Bukkit.getServer());
         if (loc != null) {
@@ -96,7 +100,8 @@ public class NPCSyncHandler implements ISyncHandler {
 
     private NPC findNPC(short npcId) {
         NPC found = registry.getById(npcId);
-        if (found != null) return found;
+        if (found != null)
+            return found;
 
         for (NPC npc : registry) {
             if (npc.getId() == npcId) {

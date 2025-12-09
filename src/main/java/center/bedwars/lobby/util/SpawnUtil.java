@@ -19,7 +19,8 @@ public class SpawnUtil {
 
         String[] parts = locationString.split(";");
         if (parts.length != 6) {
-            Lobby.getINSTANCE().getLogger().warning("[SpawnUtil] Invalid spawn format. Falling back to default world spawn.");
+            Lobby.getInstance().getLogger()
+                    .warning("[SpawnUtil] Invalid spawn format. Falling back to default world spawn.");
             return fallbackWorldSpawn();
         }
 
@@ -33,13 +34,15 @@ public class SpawnUtil {
 
             World world = Bukkit.getWorld(worldName);
             if (world == null) {
-                Lobby.getINSTANCE().getLogger().warning("[SpawnUtil] World '" + worldName + "' not found. Falling back to default world spawn.");
+                Lobby.getInstance().getLogger().warning(
+                        "[SpawnUtil] World '" + worldName + "' not found. Falling back to default world spawn.");
                 return fallbackWorldSpawn();
             }
 
             return new Location(world, x, y, z, yaw, pitch);
         } catch (NumberFormatException exception) {
-            Lobby.getINSTANCE().getLogger().warning("[SpawnUtil] Failed to parse spawn location: " + exception.getMessage());
+            Lobby.getInstance().getLogger()
+                    .warning("[SpawnUtil] Failed to parse spawn location: " + exception.getMessage());
             return fallbackWorldSpawn();
         }
     }
@@ -64,7 +67,7 @@ public class SpawnUtil {
         player.setVelocity(player.getVelocity().multiply(0));
         player.teleport(target);
 
-        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
+        Bukkit.getScheduler().runTaskLater(Lobby.getInstance(), () -> {
             player.setFallDistance(0F);
             player.setVelocity(player.getVelocity().multiply(0));
         }, 1L);

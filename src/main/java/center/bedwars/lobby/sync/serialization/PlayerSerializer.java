@@ -18,6 +18,7 @@ public final class PlayerSerializer {
         out.writeUTF(packet.name);
         out.writeUTF(packet.texture);
         out.writeUTF(packet.signature);
+        out.writeUTF(packet.data != null ? packet.data : "");
 
         return baos.toByteArray();
     }
@@ -32,15 +33,27 @@ public final class PlayerSerializer {
         String name = in.readUTF();
         String texture = in.readUTF();
         String signature = in.readUTF();
+        String extraData = in.available() > 0 ? in.readUTF() : "";
 
-        return new PlayerSyncPacket(lobbyId, action, playerId, name, texture, signature);
+        return new PlayerSyncPacket(lobbyId, action, playerId, name, texture, signature, extraData);
     }
 
     @Getter
     public enum PlayerSyncAction {
         JOIN((byte) 0),
         QUIT((byte) 1),
-        HEARTBEAT((byte) 2);
+        HEARTBEAT((byte) 2),
+        ANIMATION((byte) 3),
+        SNEAK((byte) 4),
+        SPRINT((byte) 5),
+        HELD_ITEM((byte) 6),
+        POSITION((byte) 7),
+        LOOK((byte) 8),
+        EQUIPMENT((byte) 9),
+        METADATA((byte) 10),
+        DAMAGE((byte) 11),
+        FLY((byte) 12),
+        VISIBILITY((byte) 13);
 
         private final byte id;
 
@@ -50,7 +63,8 @@ public final class PlayerSerializer {
 
         public static PlayerSyncAction fromId(byte id) {
             for (PlayerSyncAction action : values()) {
-                if (action.id == id) return action;
+                if (action.id == id)
+                    return action;
             }
             throw new IllegalArgumentException("Unknown action: " + id);
         }
@@ -63,15 +77,17 @@ public final class PlayerSerializer {
         public String name;
         public String texture;
         public String signature;
+        public String data;
 
         public PlayerSyncPacket(byte lobbyId, PlayerSyncAction action, UUID playerId,
-                                String name, String texture, String signature) {
+                String name, String texture, String signature, String data) {
             this.lobbyId = lobbyId;
             this.action = action;
             this.playerId = playerId;
             this.name = name;
             this.texture = texture;
             this.signature = signature;
+            this.data = data;
         }
     }
 }

@@ -1,15 +1,19 @@
 package center.bedwars.lobby.nametag;
 
-import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.NametagConfiguration;
-import center.bedwars.lobby.dependency.DependencyManager;
-import center.bedwars.lobby.dependency.dependencies.PlaceholderAPIDependency;
+import center.bedwars.lobby.dependency.IDependencyService;
+import com.google.inject.Inject;
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.entity.Player;
 
-import java.util.Map;
-
 public class NametagFormatter {
+
+    private final IDependencyService dependencyService;
+
+    @Inject
+    public NametagFormatter(IDependencyService dependencyService) {
+        this.dependencyService = dependencyService;
+    }
 
     public NametagConfiguration.GroupConfig getConfig(Player player, String rankName) {
         String worldName = player.getWorld().getName();
@@ -57,15 +61,14 @@ public class NametagFormatter {
     }
 
     public String parsePlaceholders(Player player, String text) {
-        if (text == null || text.isEmpty()) return "";
+        if (text == null || text.isEmpty())
+            return "";
 
         text = text.replace("%player_name%", player.getName())
                 .replace("%player%", player.getName());
 
-        DependencyManager dependencyManager = Lobby.getManagerStorage().getManager(DependencyManager.class);
-        if (dependencyManager == null) return text;
-
-        PlaceholderAPIDependency placeholderAPI = dependencyManager.getPlaceholderAPI();
+        center.bedwars.lobby.dependency.dependencies.PlaceholderAPIDependency placeholderAPI = dependencyService
+                .getPlaceholderAPI();
         if (placeholderAPI != null && placeholderAPI.isApiAvailable()) {
             return PlaceholderAPI.setPlaceholders(player, text);
         }

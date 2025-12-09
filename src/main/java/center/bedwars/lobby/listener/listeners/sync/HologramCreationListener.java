@@ -1,7 +1,8 @@
 package center.bedwars.lobby.listener.listeners.sync;
 
 import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.sync.LobbySyncManager;
+import center.bedwars.lobby.sync.ILobbySyncService;
+import com.google.inject.Inject;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.serialization.Serializer;
 import center.bedwars.lobby.sync.serialization.Serializer.HologramData;
@@ -18,22 +19,25 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class HologramCreationListener implements Listener {
 
-    private final LobbySyncManager syncManager;
+    private final Lobby plugin;
+    private final ILobbySyncService syncService;
     private final Set<String> syncedHolograms = ConcurrentHashMap.newKeySet();
 
-    public HologramCreationListener() {
-        this.syncManager = Lobby.getManagerStorage().getManager(LobbySyncManager.class);
+    @Inject
+    public HologramCreationListener(Lobby plugin, ILobbySyncService syncService) {
+        this.plugin = plugin;
+        this.syncService = syncService;
         startHologramMonitoring();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDecentHologramsReload(DecentHologramsReloadEvent event) {
         syncedHolograms.clear();
-        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), this::syncAllHolograms, 5L);
+        Bukkit.getScheduler().runTaskLater(plugin, this::syncAllHolograms, 5L);
     }
 
     private void startHologramMonitoring() {
-        Bukkit.getScheduler().runTaskTimer(Lobby.getINSTANCE(), () -> {
+        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             try {
                 for (String hologramName : Hologram.getCachedHologramNames()) {
                     if (!syncedHolograms.contains(hologramName)) {
@@ -45,7 +49,7 @@ public class HologramCreationListener implements Listener {
                     }
                 }
             } catch (Exception e) {
-                Lobby.getINSTANCE().getLogger().warning("Hologram monitoring error: " + e.getMessage());
+                plugin.getLogger().warning("Hologram monitoring error: " + e.getMessage());
             }
         }, 20L, 100L);
     }
@@ -61,7 +65,8 @@ public class HologramCreationListener implements Listener {
 
     private void syncHologram(Hologram hologram, SyncEventType eventType) {
         try {
-            if (hologram.getLocation() == null) return;
+            if (hologram.getLocation() == null)
+                return;
 
             String[] lines = hologram.getPage(0).getLines().stream()
                     .map(line -> line.getContent())
@@ -70,13 +75,13 @@ public class HologramCreationListener implements Listener {
             HologramData hologramData = new HologramData(
                     hologram.getName(),
                     hologram.getLocation(),
-                    lines
-            );
+                    lines);
 
             byte[] serialized = Serializer.serialize(hologramData);
-            syncManager.broadcastEvent(eventType, serialized);
+            syncService.broadcastEvent(eventType, serialized);
         } catch (Exception e) {
-            Lobby.getINSTANCE().getLogger().warning("Failed to sync hologram " + hologram.getName() + ": " + e.getMessage());
+            plugin.getLogger()
+                    .warning("Failed to sync hologram " + hologram.getName() + ": " + e.getMessage());
         }
     }
 }

@@ -13,12 +13,20 @@ import java.util.Arrays;
 
 public class HologramSyncHandler implements ISyncHandler {
 
+    private final Lobby plugin;
+
+    @com.google.inject.Inject
+    public HologramSyncHandler(Lobby plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public void handle(SyncEvent event) {
         try {
-            Serializer.HologramData hologramData = Serializer.deserialize(event.getData(), Serializer.HologramData.class);
+            Serializer.HologramData hologramData = Serializer.deserialize(event.getData(),
+                    Serializer.HologramData.class);
 
-            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
                 try {
                     if (event.getType() == SyncEventType.HOLOGRAM_CREATE) {
                         handleCreate(hologramData);
@@ -28,7 +36,7 @@ public class HologramSyncHandler implements ISyncHandler {
                         handleUpdate(hologramData);
                     }
                 } catch (Exception e) {
-                    Lobby.getINSTANCE().getLogger().warning("Failed to sync hologram: " + e.getMessage());
+                    plugin.getLogger().warning("Failed to sync hologram: " + e.getMessage());
                 }
             });
         } catch (Exception e) {
@@ -43,7 +51,8 @@ public class HologramSyncHandler implements ISyncHandler {
         }
 
         Location loc = data.location.toLocation(Bukkit.getServer());
-        if (loc == null) return;
+        if (loc == null)
+            return;
 
         Hologram hologram = DHAPI.createHologram(data.hologramId, loc);
         DHAPI.setHologramLines(hologram, Arrays.asList(data.lines));

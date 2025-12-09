@@ -1,11 +1,12 @@
 package center.bedwars.lobby.listener.listeners.important;
 
 import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.manager.orphans.PlayerVisibilityManager;
-import center.bedwars.lobby.nametag.NametagManager;
-import center.bedwars.lobby.parkour.ParkourManager;
-import center.bedwars.lobby.scoreboard.ScoreboardManager;
-import center.bedwars.lobby.tablist.TablistManager;
+import center.bedwars.lobby.nametag.INametagService;
+import center.bedwars.lobby.parkour.IParkourService;
+import center.bedwars.lobby.scoreboard.IScoreboardService;
+import center.bedwars.lobby.tablist.ITablistService;
+import center.bedwars.lobby.visibility.IPlayerVisibilityService;
+import com.google.inject.Inject;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,18 +16,23 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 public class QuitListener implements Listener {
 
-    private final ParkourManager parkourManager;
-    private final ScoreboardManager scoreboardManager;
-    private final TablistManager tablistManager;
-    private final NametagManager nametagManager;
-    private final PlayerVisibilityManager visibilityManager;
+    private final Lobby plugin;
+    private final IParkourService parkourService;
+    private final IScoreboardService scoreboardService;
+    private final ITablistService tablistService;
+    private final INametagService nametagService;
+    private final IPlayerVisibilityService visibilityService;
 
-    public QuitListener() {
-        this.parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
-        this.scoreboardManager = Lobby.getManagerStorage().getManager(ScoreboardManager.class);
-        this.tablistManager = Lobby.getManagerStorage().getManager(TablistManager.class);
-        this.nametagManager = Lobby.getManagerStorage().getManager(NametagManager.class);
-        this.visibilityManager = Lobby.getManagerStorage().getManager(PlayerVisibilityManager.class);
+    @Inject
+    public QuitListener(Lobby plugin, IParkourService parkourService, IScoreboardService scoreboardService,
+            ITablistService tablistService, INametagService nametagService,
+            IPlayerVisibilityService visibilityService) {
+        this.plugin = plugin;
+        this.parkourService = parkourService;
+        this.scoreboardService = scoreboardService;
+        this.tablistService = tablistService;
+        this.nametagService = nametagService;
+        this.visibilityService = visibilityService;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -34,41 +40,42 @@ public class QuitListener implements Listener {
         event.setQuitMessage(null);
 
         Player player = event.getPlayer();
-        if (player == null) return;
+        if (player == null)
+            return;
 
-        parkourManager.handlePlayerQuit(player);
+        parkourService.handlePlayerQuit(player);
 
-        if (scoreboardManager != null) {
-            scoreboardManager.removeScoreboard(player);
+        if (scoreboardService != null) {
+            scoreboardService.removeScoreboard(player);
         }
 
-        if (nametagManager != null) {
-            nametagManager.removeNametag(player);
+        if (nametagService != null) {
+            nametagService.removeNametag(player);
         }
 
-        if (tablistManager != null) {
-            tablistManager.removeTablist(player);
+        if (tablistService != null) {
+            tablistService.removeTablist(player);
         }
 
-        if (visibilityManager != null) {
-            visibilityManager.handlePlayerQuit(player);
+        if (visibilityService != null) {
+            visibilityService.handlePlayerQuit(player);
         }
 
-        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), this::updateRemainingPlayers, 5L);
+        Bukkit.getScheduler().runTaskLater(plugin, this::updateRemainingPlayers, 5L);
     }
 
     private void updateRemainingPlayers() {
-        if (nametagManager != null) {
+        if (nametagService != null) {
             Bukkit.getOnlinePlayers().forEach(online -> {
-                nametagManager.removeNametag(online);
-                nametagManager.createNametag(online);
+                nametagService.removeNametag(online);
+                nametagService.createNametag(online);
             });
         }
 
-        if (tablistManager != null) {
+        if (tablistService != null) {
             Bukkit.getOnlinePlayers().forEach(online -> {
-                tablistManager.removeTablist(online);
-                tablistManager.createTablist(online);
+                tablistService.removeTablist(online);
+                tablistService.createTablist(online);
             });
         }
     }

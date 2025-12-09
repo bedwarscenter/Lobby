@@ -2,6 +2,7 @@ package center.bedwars.lobby.scoreboard;
 
 import center.bedwars.lobby.nms.NMSHelper;
 import net.minecraft.server.v1_8_R3.*;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Constructor;
@@ -41,7 +42,8 @@ public class PlayerScoreboard {
     }
 
     private void updateTitle(String title) {
-        if (currentTitle.equals(title)) return;
+        if (currentTitle.equals(title))
+            return;
 
         try {
             String truncatedTitle = TextTruncator.truncate(title, 32);
@@ -154,7 +156,7 @@ public class PlayerScoreboard {
     private static class ScorePacketFactory {
 
         public PacketPlayOutScoreboardScore createScore(String entry, String objective, int score,
-                                                        PacketPlayOutScoreboardScore.EnumScoreboardAction action) {
+                PacketPlayOutScoreboardScore.EnumScoreboardAction action) {
             try {
                 return createWithConstructor(entry, objective, score, action);
             } catch (Exception e) {
@@ -163,9 +165,9 @@ public class PlayerScoreboard {
         }
 
         private PacketPlayOutScoreboardScore createWithConstructor(String entry, String objective, int score,
-                                                                   PacketPlayOutScoreboardScore.EnumScoreboardAction action) throws Exception {
-            Constructor<PacketPlayOutScoreboardScore> constructor =
-                    PacketPlayOutScoreboardScore.class.getDeclaredConstructor(String.class);
+                PacketPlayOutScoreboardScore.EnumScoreboardAction action) throws Exception {
+            Constructor<PacketPlayOutScoreboardScore> constructor = PacketPlayOutScoreboardScore.class
+                    .getDeclaredConstructor(String.class);
             constructor.setAccessible(true);
             PacketPlayOutScoreboardScore packet = constructor.newInstance(entry);
 
@@ -177,7 +179,7 @@ public class PlayerScoreboard {
         }
 
         private PacketPlayOutScoreboardScore createWithFields(String entry, String objective, int score,
-                                                              PacketPlayOutScoreboardScore.EnumScoreboardAction action) {
+                PacketPlayOutScoreboardScore.EnumScoreboardAction action) {
             PacketPlayOutScoreboardScore packet = new PacketPlayOutScoreboardScore();
             ReflectionUtil.setField(packet, "a", entry);
             ReflectionUtil.setField(packet, "b", objective);
@@ -246,8 +248,7 @@ public class PlayerScoreboard {
             try {
                 PacketPlayOutScoreboardScore packet = scoreFactory.createScore(
                         entry, objectiveName, score,
-                        PacketPlayOutScoreboardScore.EnumScoreboardAction.CHANGE
-                );
+                        PacketPlayOutScoreboardScore.EnumScoreboardAction.CHANGE);
                 sendPacket(packet);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -258,8 +259,7 @@ public class PlayerScoreboard {
             try {
                 PacketPlayOutScoreboardScore packet = scoreFactory.createScore(
                         entry, objectiveName, score,
-                        PacketPlayOutScoreboardScore.EnumScoreboardAction.REMOVE
-                );
+                        PacketPlayOutScoreboardScore.EnumScoreboardAction.REMOVE);
                 sendPacket(packet);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -304,7 +304,7 @@ public class PlayerScoreboard {
             String suffix = line.substring(16);
 
             String lastColor = extractLastColor(prefix);
-            if (!lastColor.isEmpty() && !suffix.startsWith("§")) {
+            if (!lastColor.isEmpty() && !suffix.startsWith(String.valueOf(ChatColor.COLOR_CHAR))) {
                 suffix = lastColor + suffix;
             }
 
@@ -316,10 +316,10 @@ public class PlayerScoreboard {
         private String extractLastColor(String text) {
             String lastColor = "";
             for (int i = 0; i < text.length() - 1; i++) {
-                if (text.charAt(i) == '§') {
+                if (text.charAt(i) == ChatColor.COLOR_CHAR) {
                     char code = text.charAt(i + 1);
                     if (isValidColorCode(code)) {
-                        lastColor = "§" + code;
+                        lastColor = String.valueOf(ChatColor.COLOR_CHAR) + code;
                     }
                 }
             }
@@ -336,7 +336,12 @@ public class PlayerScoreboard {
 
     private static class ScoreboardEntry {
         public static String create(int score) {
-            return "§" + score / 10 + "§" + score % 10 + "§r";
+            char colorChar = "0123456789abcdef".charAt(score % 16);
+            if (score >= 16) {
+                char secondChar = "0123456789abcdef".charAt(score / 16 % 16);
+                return "" + ChatColor.COLOR_CHAR + secondChar + ChatColor.COLOR_CHAR + colorChar + ChatColor.RESET;
+            }
+            return "" + ChatColor.COLOR_CHAR + colorChar + ChatColor.RESET;
         }
     }
 

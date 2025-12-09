@@ -8,10 +8,6 @@ group = project.findProperty("group")
 version = project.findProperty("version")
 description = project.findProperty("description")
 
-configurations.all {
-    exclude group: 'org.bouncycastle'
-}
-
 dependencies {
     compileOnly("xyz.refinedev.spigot:Carbon-API:1.8.8-R0.1-SNAPSHOT") {
         exclude group: 'me.carleslc.Simple-YAML', module: 'Simple-Yaml'
@@ -43,6 +39,10 @@ dependencies {
     implementation("net.j4c0b3y.CommandAPI:bukkit:${project.findProperty("commandApiVersion")}")
     implementation("net.j4c0b3y:MenuAPI-core:${project.findProperty("menuApiVersion")}")
     implementation("net.j4c0b3y:ConfigAPI-core:${project.findProperty("configApiVersion")}")
+
+    implementation("com.google.inject:guice:${project.findProperty("guiceVersion")}") {
+        exclude group: 'com.google.guava'
+    }
 
     annotationProcessor "org.projectlombok:lombok:${project.findProperty("lombokVersion")}"
 }

@@ -1,6 +1,6 @@
 package center.bedwars.lobby.listener.listeners.general;
 
-import center.bedwars.lobby.Lobby;
+import com.google.inject.Inject;
 import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -9,10 +9,8 @@ import org.bukkit.event.weather.WeatherChangeEvent;
 
 public class WorldWeatherListener implements Listener {
 
-    private Lobby lobby;
-
+    @Inject
     public WorldWeatherListener() {
-        lobby = Lobby.getINSTANCE();
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -22,7 +20,5 @@ public class WorldWeatherListener implements Listener {
         world.setThundering(false);
         world.setStorm(false);
         world.setWeatherDuration(0);
-
     }
-
 }

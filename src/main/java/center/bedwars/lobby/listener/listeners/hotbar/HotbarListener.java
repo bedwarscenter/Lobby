@@ -1,13 +1,14 @@
 package center.bedwars.lobby.listener.listeners.hotbar;
 
-import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.ItemsConfiguration;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
+import center.bedwars.lobby.hotbar.IHotbarService;
 import center.bedwars.lobby.util.ColorUtil;
-import center.bedwars.lobby.manager.orphans.HotbarManager;
-import center.bedwars.lobby.manager.orphans.PlayerVisibilityManager;
+import center.bedwars.lobby.visibility.IPlayerVisibilityService;
+import com.google.inject.Inject;
 import com.yapzhenyie.GadgetsMenu.api.GadgetsMenuAPI;
 import com.yapzhenyie.GadgetsMenu.player.PlayerManager;
+import center.bedwars.lobby.menu.IMenuService;
 import de.marcely.bedwars.api.cosmetics.CosmeticsAPI;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -20,18 +21,22 @@ import org.bukkit.inventory.ItemStack;
 
 public class HotbarListener implements Listener {
 
-    private final HotbarManager hotbarManager;
-    private final PlayerVisibilityManager visibilityManager;
+    private final IHotbarService hotbarService;
+    private final IPlayerVisibilityService visibilityService;
+    private final IMenuService menuService;
 
-    public HotbarListener() {
-        this.hotbarManager = Lobby.getManagerStorage().getManager(HotbarManager.class);
-        this.visibilityManager = Lobby.getManagerStorage().getManager(PlayerVisibilityManager.class);
+    @Inject
+    public HotbarListener(IHotbarService hotbarService, IPlayerVisibilityService visibilityService,
+            IMenuService menuService) {
+        this.hotbarService = hotbarService;
+        this.visibilityService = visibilityService;
+        this.menuService = menuService;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        hotbarManager.giveLobbyHotbar(player);
+        hotbarService.giveLobbyHotbar(player);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -51,17 +56,17 @@ public class HotbarListener implements Listener {
 
         if (displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.QUICK_PLAY.DISPLAY_NAME))) {
             event.setCancelled(true);
-            sendHotbarMessage(player, LanguageConfiguration.HOTBAR.QUICK_PLAY);
+            menuService.openQuickplayMenu(player);
             return;
         }
         if (displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.PROFILE.DISPLAY_NAME))) {
             event.setCancelled(true);
-            sendHotbarMessage(player, LanguageConfiguration.HOTBAR.PROFILE);
+            menuService.openYourProfileMenu(player);
             return;
         }
         if (displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.BEDWARS_MENU.DISPLAY_NAME))) {
             event.setCancelled(true);
-            sendHotbarMessage(player, LanguageConfiguration.HOTBAR.BEDWARS_MENU);
+            menuService.openBedWarsMenu(player);
             return;
         }
         if (displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.SHOP.DISPLAY_NAME))) {
@@ -75,19 +80,20 @@ public class HotbarListener implements Listener {
             playerManager.goBackToMainMenu();
             return;
         }
-        if (displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.PLAYER_VISIBILITY.VISIBLE.DISPLAY_NAME)) ||
-                displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.PLAYER_VISIBILITY.HIDDEN.DISPLAY_NAME))) {
+        if (displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.PLAYER_VISIBILITY.VISIBLE.DISPLAY_NAME))
+                ||
+                displayName.equals(
+                        ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.PLAYER_VISIBILITY.HIDDEN.DISPLAY_NAME))) {
             event.setCancelled(true);
-            if (!visibilityManager.toggleVisibilityWithCooldown(player)) {
-                long remaining = visibilityManager.getRemainingCooldown(player);
+            if (!visibilityService.toggleVisibilityWithCooldown(player)) {
+                long remaining = visibilityService.getRemainingCooldown(player);
                 String seconds = formatSeconds(remaining);
                 sendHotbarMessage(player, LanguageConfiguration.HOTBAR.VISIBILITY_COOLDOWN
                         .replace("%seconds%", seconds));
                 return;
             }
 
-            hotbarManager.updateHotbar(player);
-            if (visibilityManager.isHidden(player)) {
+            if (visibilityService.isHidden(player)) {
                 sendHotbarMessage(player, LanguageConfiguration.HOTBAR.VISIBILITY_HIDDEN);
             } else {
                 sendHotbarMessage(player, LanguageConfiguration.HOTBAR.VISIBILITY_VISIBLE);
@@ -96,7 +102,7 @@ public class HotbarListener implements Listener {
         }
         if (displayName.equals(ColorUtil.color(ItemsConfiguration.LOBBY_HOTBAR.LOBBY_SELECTOR.DISPLAY_NAME))) {
             event.setCancelled(true);
-            sendHotbarMessage(player, LanguageConfiguration.HOTBAR.LOBBY_SELECTOR);
+            menuService.openLobbySelectorMenu(player);
         }
     }
 

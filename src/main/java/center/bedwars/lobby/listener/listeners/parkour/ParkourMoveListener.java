@@ -1,8 +1,8 @@
 package center.bedwars.lobby.listener.listeners.parkour;
 
-import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.parkour.ParkourManager;
+import center.bedwars.lobby.parkour.IParkourService;
 import center.bedwars.lobby.parkour.model.Parkour;
+import com.google.inject.Inject;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -13,10 +13,11 @@ import org.bukkit.event.player.PlayerMoveEvent;
 
 public class ParkourMoveListener implements Listener {
 
-    private final ParkourManager parkourManager;
+    private final IParkourService parkourService;
 
-    public ParkourMoveListener() {
-        this.parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
+    @Inject
+    public ParkourMoveListener(IParkourService parkourService) {
+        this.parkourService = parkourService;
     }
 
     @EventHandler
@@ -57,14 +58,14 @@ public class ParkourMoveListener implements Listener {
         Location location = block.getLocation();
 
         if (type == Material.GOLD_BLOCK) {
-            Parkour parkour = parkourManager.getParkourAtLocation(location);
+            Parkour parkour = parkourService.getParkourAtLocation(location);
             if (parkour != null) {
-                parkourManager.startParkour(player, parkour);
+                parkourService.startParkour(player, parkour);
             }
-        } else if ( type == Material.IRON_BLOCK) {
-            parkourManager.handleCheckpoint(player, location);
-        } else if ( type == Material.DIAMOND_BLOCK) {
-            parkourManager.handleFinish(player, location);
+        } else if (type == Material.IRON_BLOCK) {
+            parkourService.handleCheckpoint(player, location);
+        } else if (type == Material.DIAMOND_BLOCK) {
+            parkourService.handleFinish(player, location);
         }
     }
 }

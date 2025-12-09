@@ -1,7 +1,7 @@
 package center.bedwars.lobby.listener.listeners.sync;
 
-import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.sync.LobbySyncManager;
+import center.bedwars.lobby.sync.ILobbySyncService;
+import com.google.inject.Inject;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.serialization.Serializer;
 import center.bedwars.lobby.sync.serialization.Serializer.NPCData;
@@ -15,16 +15,18 @@ import org.bukkit.event.Listener;
 
 public class NPCCreationListener implements Listener {
 
-    private final LobbySyncManager syncManager;
+    private final ILobbySyncService syncService;
 
-    public NPCCreationListener() {
-        this.syncManager = Lobby.getManagerStorage().getManager(LobbySyncManager.class);
+    @Inject
+    public NPCCreationListener(ILobbySyncService syncService) {
+        this.syncService = syncService;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onNPCCreate(NPCCreateEvent event) {
         NPC npc = event.getNPC();
-        if (npc.getStoredLocation() == null) return;
+        if (npc.getStoredLocation() == null)
+            return;
 
         String texture = "";
         String signature = "";
@@ -39,11 +41,10 @@ public class NPCCreationListener implements Listener {
                 npc.getName(),
                 npc.getStoredLocation(),
                 texture,
-                signature
-        );
+                signature);
 
         byte[] serialized = Serializer.serialize(npcData);
-        syncManager.broadcastEvent(SyncEventType.NPC_CREATE, serialized);
+        syncService.broadcastEvent(SyncEventType.NPC_CREATE, serialized);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -51,6 +52,6 @@ public class NPCCreationListener implements Listener {
         NPC npc = event.getNPC();
         NPCData npcData = new NPCData(String.valueOf(npc.getId()), "", null, "", "");
         byte[] serialized = Serializer.serialize(npcData);
-        syncManager.broadcastEvent(SyncEventType.NPC_DELETE, serialized);
+        syncService.broadcastEvent(SyncEventType.NPC_DELETE, serialized);
     }
 }

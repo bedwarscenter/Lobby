@@ -1,15 +1,16 @@
 package center.bedwars.lobby.command.commands;
 
 import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.configuration.ConfigurationManager;
+import center.bedwars.lobby.configuration.IConfigurationService;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
-import center.bedwars.lobby.nametag.NametagManager;
-import center.bedwars.lobby.parkour.ParkourManager;
+import center.bedwars.lobby.nametag.INametagService;
+import center.bedwars.lobby.parkour.IParkourService;
 import center.bedwars.lobby.parkour.session.ParkourSession;
-import center.bedwars.lobby.scoreboard.ScoreboardManager;
-import center.bedwars.lobby.tablist.TablistManager;
+import center.bedwars.lobby.scoreboard.IScoreboardService;
+import center.bedwars.lobby.tablist.ITablistService;
 import center.bedwars.lobby.util.ColorUtil;
+import com.google.inject.Inject;
 import net.j4c0b3y.api.command.annotation.command.Command;
 import net.j4c0b3y.api.command.annotation.command.Requires;
 import net.j4c0b3y.api.command.annotation.parameter.classifier.Sender;
@@ -18,12 +19,29 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
-@Register(name = "bedwarslobby", aliases = {"bwl"})
+@Register(name = "bedwarslobby", aliases = { "bwl" })
 @Requires("bedwarslobby.command.admin")
 @SuppressWarnings("unused")
 public class BedWarsLobbyCommand {
 
-    private final Lobby lobby = Lobby.getINSTANCE();
+    private final Lobby lobby;
+    private final IConfigurationService configService;
+    private final IScoreboardService scoreboardService;
+    private final ITablistService tablistService;
+    private final INametagService nametagService;
+    private final IParkourService parkourService;
+
+    @Inject
+    public BedWarsLobbyCommand(Lobby lobby, IConfigurationService configService,
+            IScoreboardService scoreboardService, ITablistService tablistService,
+            INametagService nametagService, IParkourService parkourService) {
+        this.lobby = lobby;
+        this.configService = configService;
+        this.scoreboardService = scoreboardService;
+        this.tablistService = tablistService;
+        this.nametagService = nametagService;
+        this.parkourService = parkourService;
+    }
 
     @Command(name = "")
     public void bedwarslobby(@Sender Player sender) {
@@ -39,24 +57,20 @@ public class BedWarsLobbyCommand {
 
         Bukkit.getScheduler().runTaskAsynchronously(lobby, () -> {
             long startTime = System.currentTimeMillis();
-            ConfigurationManager.reloadConfigurations();
+            configService.reloadConfigurations();
             long reloadTime = System.currentTimeMillis() - startTime;
 
             Bukkit.getScheduler().runTask(lobby, () -> {
-                ScoreboardManager scoreboardManager = Lobby.getManagerStorage().getManager(ScoreboardManager.class);
-                TablistManager tablistManager = Lobby.getManagerStorage().getManager(TablistManager.class);
-                NametagManager nametagManager = Lobby.getManagerStorage().getManager(NametagManager.class);
-
-                if (scoreboardManager != null) {
-                    scoreboardManager.reload();
+                if (scoreboardService != null) {
+                    scoreboardService.reload();
                 }
 
-                if (tablistManager != null) {
-                    tablistManager.reload();
+                if (tablistService != null) {
+                    tablistService.reload();
                 }
 
-                if (nametagManager != null) {
-                    nametagManager.reload();
+                if (nametagService != null) {
+                    nametagService.reload();
                 }
 
                 ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.RELOADED
@@ -71,8 +85,7 @@ public class BedWarsLobbyCommand {
 
         Bukkit.getScheduler().runTask(lobby, () -> {
             try {
-                ParkourManager parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
-                parkourManager.refreshParkours();
+                parkourService.refreshParkours();
                 ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.PARKOUR_REFRESHED);
             } catch (Exception e) {
                 ColorUtil.sendMessage(sender, LanguageConfiguration.COMMAND.ADMIN_COMMAND.PARKOUR_FAILED
@@ -84,8 +97,7 @@ public class BedWarsLobbyCommand {
 
     @Command(name = "setspawn")
     public void setSpawn(@Sender Player sender) {
-        ParkourManager parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
-        ParkourSession session = parkourManager.getSessionManager().getSession(sender);
+        ParkourSession session = parkourService.getSession(sender);
 
         Location loc = sender.getLocation();
         SettingsConfiguration.SPAWN_LOCATION = String.format("%s;%s;%s;%s;%s;%s",
@@ -99,6 +111,6 @@ public class BedWarsLobbyCommand {
             ColorUtil.sendMessage(sender, "&aSet lobby spawn location!");
         }
 
-        Bukkit.getScheduler().runTaskAsynchronously(lobby, ConfigurationManager::saveConfigurations);
+        Bukkit.getScheduler().runTaskAsynchronously(lobby, configService::saveConfigurations);
     }
 }

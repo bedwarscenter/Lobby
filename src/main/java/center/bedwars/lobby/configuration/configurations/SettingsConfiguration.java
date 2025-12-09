@@ -18,6 +18,11 @@ public class SettingsConfiguration extends StaticConfig {
     @Comment("Lobby id")
     public static String LOBBY_ID = "bwL1";
 
+    public static class PLAYER_SYNC {
+        @Comment("Enable player sync between lobbies (fake players, position sync, etc.)")
+        public static boolean ENABLED = false;
+    }
+
     public static class REDIS {
         @Comment("Redis Host - Redis server address (default: localhost)")
         public static String REDIS_HOST = "localhost";
@@ -47,10 +52,12 @@ public class SettingsConfiguration extends StaticConfig {
     }
 
     @Comment("Join messages based on rank")
-    public static Map<String, String> JOIN_MESSAGES = new HashMap<>() {{
-        put("MVP+", "test");
-        put("MVP++", "test");
-    }};
+    public static Map<String, String> JOIN_MESSAGES = new HashMap<>() {
+        {
+            put("MVP+", "test");
+            put("MVP++", "test");
+        }
+    };
 
     @Comment("Spawn location")
     public static String SPAWN_LOCATION = "0.5;60;0.5;world;0;0";
@@ -103,8 +110,7 @@ public class SettingsConfiguration extends StaticConfig {
         public static List<String> MUTED_SOUNDS = Arrays.asList(
                 "step.grass",
                 "step.stone",
-                "step.wood"
-        );
+                "step.wood");
 
         @Comment("Cooldown in milliseconds between visibility toggles")
         public static long TOGGLE_COOLDOWN_MILLIS = 3000L;
@@ -134,6 +140,48 @@ public class SettingsConfiguration extends StaticConfig {
 
         @Comment("Sound pitch")
         public static float SOUND_PITCH = 1.0f;
+    }
+
+    public static class SNOW_RAIN {
+        @Comment("Enable snow/rain particle effect system")
+        public static boolean ENABLED = false;
+
+        @Comment("Particle count per tick")
+        public static int PARTICLE_COUNT = 30;
+
+        @Comment("Particle spawn radius around player")
+        public static double RADIUS = 15.0;
+
+        @Comment("Particle spawn height above player")
+        public static double HEIGHT = 10.0;
+
+        @Comment("Update interval in ticks")
+        public static int UPDATE_INTERVAL = 2;
+
+        @Comment("Seconds to wait before showing prompt to new players")
+        public static int PROMPT_DELAY_SECONDS = 3;
+
+        public static class MESSAGES {
+            @Comment("Message shown when snow is enabled")
+            public static String ENABLED_MESSAGE = "&a&lSnow effect enabled! &7Use /togglesnow to disable.";
+
+            @Comment("Message shown when snow is disabled")
+            public static String DISABLED_MESSAGE = "&c&lSnow effect disabled! &7Use /togglesnow to enable.";
+
+            @Comment("Prompt message for new players")
+            public static String PROMPT_MESSAGE = "&e&lWinter is here! &7Would you like to enable snow effects? Use &f/togglesnow &7to toggle.";
+
+            @Comment("Message when feature is disabled globally")
+            public static String FEATURE_DISABLED = "&cSnow effects are currently disabled.";
+        }
+
+        public static class COMMAND {
+            @Comment("Command name for toggling snow")
+            public static String NAME = "togglesnow";
+
+            @Comment("Command aliases")
+            public static java.util.List<String> ALIASES = java.util.Arrays.asList("snow", "ts");
+        }
     }
 
 }

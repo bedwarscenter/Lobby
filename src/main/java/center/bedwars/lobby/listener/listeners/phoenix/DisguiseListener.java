@@ -1,9 +1,10 @@
 package center.bedwars.lobby.listener.listeners.phoenix;
 
 import center.bedwars.lobby.Lobby;
-import center.bedwars.lobby.manager.orphans.HotbarManager;
-import center.bedwars.lobby.nametag.NametagManager;
-import center.bedwars.lobby.tablist.TablistManager;
+import center.bedwars.lobby.hotbar.IHotbarService;
+import center.bedwars.lobby.nametag.INametagService;
+import center.bedwars.lobby.tablist.ITablistService;
+import com.google.inject.Inject;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -14,24 +15,29 @@ import xyz.refinedev.phoenix.utils.events.disguise.ProfileUndisguiseEvent;
 
 public class DisguiseListener implements Listener {
 
-    private final HotbarManager hotbarManager;
-    private final TablistManager tablistManager;
-    private final NametagManager nametagManager;
+    private final Lobby plugin;
+    private final IHotbarService hotbarService;
+    private final ITablistService tablistService;
+    private final INametagService nametagService;
 
-    public DisguiseListener() {
-        this.hotbarManager = Lobby.getManagerStorage().getManager(HotbarManager.class);
-        this.tablistManager = Lobby.getManagerStorage().getManager(TablistManager.class);
-        this.nametagManager = Lobby.getManagerStorage().getManager(NametagManager.class);
+    @Inject
+    public DisguiseListener(Lobby plugin, IHotbarService hotbarService, ITablistService tablistService,
+            INametagService nametagService) {
+        this.plugin = plugin;
+        this.hotbarService = hotbarService;
+        this.tablistService = tablistService;
+        this.nametagService = nametagService;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onProfileDisguise(ProfileDisguiseEvent event) {
         Player player = Bukkit.getPlayer(event.getProfile().getUuid());
-        if (player == null) return;
+        if (player == null)
+            return;
 
-        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
-            if (hotbarManager != null) {
-                hotbarManager.giveLobbyHotbar(player);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (hotbarService != null) {
+                hotbarService.updateHotbar(player);
             }
             updateAllDisplays();
         }, 3L);
@@ -40,28 +46,29 @@ public class DisguiseListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onProfileUnDisguise(ProfileUndisguiseEvent event) {
         Player player = Bukkit.getPlayer(event.getProfile().getUuid());
-        if (player == null) return;
+        if (player == null)
+            return;
 
-        Bukkit.getScheduler().runTaskLater(Lobby.getINSTANCE(), () -> {
-            if (hotbarManager != null) {
-                hotbarManager.giveLobbyHotbar(player);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (hotbarService != null) {
+                hotbarService.updateHotbar(player);
             }
             updateAllDisplays();
         }, 3L);
     }
 
     private void updateAllDisplays() {
-        if (nametagManager != null) {
+        if (nametagService != null) {
             Bukkit.getOnlinePlayers().forEach(online -> {
-                nametagManager.removeNametag(online);
-                nametagManager.createNametag(online);
+                nametagService.removeNametag(online);
+                nametagService.createNametag(online);
             });
         }
 
-        if (tablistManager != null) {
+        if (tablistService != null) {
             Bukkit.getOnlinePlayers().forEach(online -> {
-                tablistManager.removeTablist(online);
-                tablistManager.createTablist(online);
+                tablistService.removeTablist(online);
+                tablistService.createTablist(online);
             });
         }
     }

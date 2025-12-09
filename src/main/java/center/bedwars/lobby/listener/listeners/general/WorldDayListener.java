@@ -13,7 +13,7 @@ public class WorldDayListener implements Listener {
     private final Lobby lobby;
 
     public WorldDayListener() {
-        this.lobby = Lobby.getINSTANCE();
+        this.lobby = Lobby.getInstance();
     }
 
     @EventHandler(priority = EventPriority.LOWEST)

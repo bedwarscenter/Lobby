@@ -8,15 +8,23 @@ import org.bukkit.Bukkit;
 
 public class BlockSyncHandler implements ISyncHandler {
 
+    private final Lobby plugin;
+
+    @com.google.inject.Inject
+    public BlockSyncHandler(Lobby plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public void handle(SyncEvent event) {
         try {
             Serializer.BlockData blockData = Serializer.deserialize(event.getData(), Serializer.BlockData.class);
 
-            Bukkit.getScheduler().runTask(Lobby.getINSTANCE(), () -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
                 try {
                     org.bukkit.Location loc = blockData.location.toLocation(Bukkit.getServer());
-                    if (loc == null || loc.getWorld() == null) return;
+                    if (loc == null || loc.getWorld() == null)
+                        return;
 
                     if (!loc.getChunk().isLoaded()) {
                         loc.getChunk().load(true);

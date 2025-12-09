@@ -1,9 +1,9 @@
 package center.bedwars.lobby.command.commands;
 
-import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
-import center.bedwars.lobby.parkour.ParkourManager;
+import center.bedwars.lobby.parkour.IParkourService;
 import center.bedwars.lobby.util.ColorUtil;
+import com.google.inject.Inject;
 import net.j4c0b3y.api.command.annotation.command.Command;
 import net.j4c0b3y.api.command.annotation.parameter.classifier.Sender;
 import net.j4c0b3y.api.command.annotation.registration.Register;
@@ -13,10 +13,11 @@ import org.bukkit.entity.Player;
 @SuppressWarnings("unused")
 public class ParkourCommand {
 
-    private final ParkourManager parkourManager;
+    private final IParkourService parkourService;
 
-    public ParkourCommand() {
-        this.parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
+    @Inject
+    public ParkourCommand(IParkourService parkourService) {
+        this.parkourService = parkourService;
     }
 
     @Command(name = "")
@@ -29,16 +30,16 @@ public class ParkourCommand {
 
     @Command(name = "checkpoint")
     public void checkpoint(@Sender Player player) {
-        parkourManager.teleportToCheckpoint(player);
+        parkourService.teleportToCheckpoint(player);
     }
 
     @Command(name = "reset")
     public void reset(@Sender Player player) {
-        parkourManager.resetPlayer(player);
+        parkourService.resetPlayer(player);
     }
 
     @Command(name = "quit")
     public void quit(@Sender Player player) {
-        parkourManager.quitParkour(player);
+        parkourService.quitParkour(player);
     }
 }

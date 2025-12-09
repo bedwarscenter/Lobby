@@ -1,10 +1,10 @@
 package center.bedwars.lobby.listener.listeners.parkour;
 
-import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
-import center.bedwars.lobby.parkour.ParkourManager;
+import center.bedwars.lobby.parkour.IParkourService;
 import center.bedwars.lobby.parkour.session.ParkourSession;
 import center.bedwars.lobby.util.ColorUtil;
+import com.google.inject.Inject;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,17 +17,18 @@ import org.bukkit.event.player.PlayerToggleFlightEvent;
 
 public class ParkourListener implements Listener {
 
-    private final ParkourManager parkourManager;
+    private final IParkourService parkourService;
 
-    public ParkourListener() {
-        this.parkourManager = Lobby.getManagerStorage().getManager(ParkourManager.class);
+    @Inject
+    public ParkourListener(IParkourService parkourService) {
+        this.parkourService = parkourService;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onFlightToggle(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
 
-        ParkourSession session = parkourManager.getSessionManager().getSession(player);
+        ParkourSession session = parkourService.getSession(player);
         if (session != null) {
             event.setCancelled(true);
             player.setAllowFlight(false);
@@ -41,9 +42,9 @@ public class ParkourListener implements Listener {
         Player player = event.getPlayer();
 
         if (event.getNewGameMode() == GameMode.CREATIVE || event.getNewGameMode() == GameMode.SPECTATOR) {
-            ParkourSession session = parkourManager.getSessionManager().getSession(player);
+            ParkourSession session = parkourService.getSession(player);
             if (session != null) {
-                parkourManager.quitParkour(player);
+                parkourService.quitParkour(player);
                 ColorUtil.sendMessage(player, LanguageConfiguration.PARKOUR.GAMEMODE_CHANGE);
             }
         }
@@ -56,11 +57,11 @@ public class ParkourListener implements Listener {
         }
 
         Player player = event.getPlayer();
-        if (!parkourManager.getSessionManager().hasActiveSession(player)) {
+        if (!parkourService.hasActiveSession(player)) {
             return;
         }
 
         event.setCancelled(true);
-        parkourManager.handleItemClick(player, event.getItem());
+        parkourService.handleItemClick(player, event.getItem());
     }
 }
