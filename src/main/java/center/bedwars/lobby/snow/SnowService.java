@@ -183,7 +183,6 @@ public class SnowService extends AbstractService implements ISnowService {
                     count);
             center.bedwars.lobby.nms.NMSHelper.sendPacket(player, packet);
         } catch (Exception e) {
-            // Silent fail
         }
     }
 

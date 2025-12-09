@@ -164,8 +164,6 @@ public class TablistService extends AbstractService implements ITablistService {
             String tabSuffix = formatter.parsePlaceholders(player, config.tabsuffix);
             String formattedName = ColorUtil.color(tabPrefix + player.getName() + tabSuffix);
 
-            // Use Phoenix priority - higher number = higher rank = appears first
-            // If rank is null or has no name, put at bottom with priority -1
             int priority = (rank != null && rank.getName() != null && !rank.getName().isEmpty())
                     ? rank.getPriority()
                     : -1;
@@ -173,7 +171,6 @@ public class TablistService extends AbstractService implements ITablistService {
             entries.add(new PlayerEntry(player, formattedName, priority, rank));
         }
 
-        // Sort entries by priority (higher = first)
         entries.sort((a, b) -> {
             int priorityCompare = Integer.compare(b.priority(), a.priority());
             if (priorityCompare != 0) {
@@ -188,7 +185,6 @@ public class TablistService extends AbstractService implements ITablistService {
             return nameA.compareTo(nameB);
         });
 
-        // Apply sorting using team-based approach
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (viewer.isOnline()) {
                 int index = 0;
@@ -205,20 +201,17 @@ public class TablistService extends AbstractService implements ITablistService {
 
     private void setPlayerTeamOrder(Player viewer, Player target, int order) {
         try {
-            // Create team name based on priority order
-            // Format: AAA for order 0, AAB for order 1, etc.
+
             String teamName = "sb" + String.format("%03d", order);
 
-            // First remove any existing team for this player
             PacketPlayOutScoreboardTeam removePacket = new PacketPlayOutScoreboardTeam();
             setTeamField(removePacket, "a", teamName);
-            setTeamField(removePacket, "h", 1); // Mode: 1 = remove team
+            setTeamField(removePacket, "h", 1);
             NMSHelper.sendPacket(viewer, removePacket);
 
-            // Create new team with player
             PacketPlayOutScoreboardTeam createPacket = new PacketPlayOutScoreboardTeam();
             setTeamField(createPacket, "a", teamName);
-            setTeamField(createPacket, "h", 0); // Mode: 0 = create
+            setTeamField(createPacket, "h", 0);
             setTeamField(createPacket, "b", "");
             setTeamField(createPacket, "c", "");
             setTeamField(createPacket, "d", "");
@@ -232,7 +225,6 @@ public class TablistService extends AbstractService implements ITablistService {
 
             NMSHelper.sendPacket(viewer, createPacket);
         } catch (Exception e) {
-            // Silent fail
         }
     }
 
@@ -251,7 +243,6 @@ public class TablistService extends AbstractService implements ITablistService {
             if (sortType.startsWith("GROUPS:")) {
                 String groupsPart = sortType.substring(7);
                 for (String group : groupsPart.split(",")) {
-                    // Handle pipe-separated same-priority groups
                     for (String g : group.split("\\|")) {
                         groups.add(g.trim());
                     }
@@ -268,7 +259,7 @@ public class TablistService extends AbstractService implements ITablistService {
                 return i;
             }
         }
-        return Integer.MAX_VALUE; // Unknown rank goes last
+        return Integer.MAX_VALUE;
     }
 
     private IRank getPlayerRank(UUID realUUID) {

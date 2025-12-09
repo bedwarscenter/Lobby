@@ -2,13 +2,16 @@ package center.bedwars.lobby.command.commands;
 
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.snow.ISnowService;
+import center.bedwars.lobby.util.ColorUtil;
 import com.google.inject.Inject;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
+import net.j4c0b3y.api.command.annotation.command.Command;
+import net.j4c0b3y.api.command.annotation.parameter.classifier.Sender;
+import net.j4c0b3y.api.command.annotation.registration.Register;
 import org.bukkit.entity.Player;
 
-public class ToggleSnowCommand implements CommandExecutor {
+@Register(name = "togglesnow", aliases = { "snow", "ts" })
+@SuppressWarnings("unused")
+public class ToggleSnowCommand {
 
     private final ISnowService snowService;
 
@@ -17,22 +20,13 @@ public class ToggleSnowCommand implements CommandExecutor {
         this.snowService = snowService;
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("This command can only be used by players.");
-            return true;
-        }
-
-        Player player = (Player) sender;
-
+    @Command(name = "")
+    public void toggle(@Sender Player sender) {
         if (!SettingsConfiguration.SNOW_RAIN.ENABLED) {
-            player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&',
-                    SettingsConfiguration.SNOW_RAIN.MESSAGES.FEATURE_DISABLED));
-            return true;
+            ColorUtil.sendMessage(sender, SettingsConfiguration.SNOW_RAIN.MESSAGES.FEATURE_DISABLED);
+            return;
         }
 
-        snowService.toggleSnow(player);
-        return true;
+        snowService.toggleSnow(sender);
     }
 }

@@ -5,9 +5,3 @@ api-version: ${apiVersion}
 load: POSTWORLD
 authors: [ sheduxdev ]
 depend: ["PlaceholderAPI", "Retention"]
-
-commands:
-  togglesnow:
-    description: Toggle snow particle effects
-    usage: /togglesnow
-    aliases: [snow, ts]

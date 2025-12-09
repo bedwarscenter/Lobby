@@ -41,11 +41,6 @@ public class CommandService extends AbstractService implements ICommandService {
         commandHandler.register(injector.getInstance(SyncCommand.class));
         commandHandler.register(injector.getInstance(CosmeticsCommand.class));
         commandHandler.register(injector.getInstance(CollectiblesCommand.class));
-
-        // Register togglesnow command via Bukkit API
-        org.bukkit.command.PluginCommand snowCmd = plugin.getCommand("togglesnow");
-        if (snowCmd != null) {
-            snowCmd.setExecutor(injector.getInstance(ToggleSnowCommand.class));
-        }
+        commandHandler.register(injector.getInstance(ToggleSnowCommand.class));
     }
 }

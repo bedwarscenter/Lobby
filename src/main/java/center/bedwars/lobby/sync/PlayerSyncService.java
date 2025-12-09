@@ -60,7 +60,6 @@ public class PlayerSyncService extends AbstractService implements IPlayerSyncSer
         running = true;
         setupSubscription();
         startHeartbeat();
-        // Position sync is now handled by PlayerMoveEvent in EntityPacketListener
     }
 
     @Override
