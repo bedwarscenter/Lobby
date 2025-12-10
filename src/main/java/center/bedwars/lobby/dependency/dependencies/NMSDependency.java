@@ -1,12 +1,12 @@
 package center.bedwars.lobby.dependency.dependencies;
 
+import center.bedwars.lobby.dependency.IDependency;
 import lombok.Getter;
 import net.minecraft.server.v1_8_R3.MinecraftServer;
 import org.bukkit.Bukkit;
 
 @Getter
-@SuppressWarnings({"unused"})
-public final class NMSDependency {
+public final class NMSDependency implements IDependency {
 
     private static final String DEPENDENCY_NAME = "NMS";
     private static final String NMS_VERSION = "v1_8_R3";
@@ -31,10 +31,17 @@ public final class NMSDependency {
         this.present = isPresent;
     }
 
+    @Override
     public String getDependencyName() {
         return DEPENDENCY_NAME;
     }
 
+    @Override
+    public boolean isPresent() {
+        return present;
+    }
+
+    @Override
     public boolean isApiAvailable() {
         return present && minecraftServer != null;
     }

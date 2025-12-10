@@ -3,7 +3,7 @@ package center.bedwars.lobby.listener.listeners.hotbar;
 import center.bedwars.lobby.configuration.configurations.ItemsConfiguration;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.hotbar.IHotbarService;
-import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.api.util.ColorUtil;
 import center.bedwars.lobby.visibility.IPlayerVisibilityService;
 import com.google.inject.Inject;
 import com.yapzhenyie.GadgetsMenu.api.GadgetsMenuAPI;

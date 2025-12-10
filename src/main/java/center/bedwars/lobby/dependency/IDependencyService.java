@@ -14,7 +14,7 @@ public interface IDependencyService extends IService {
 
     DecentHologramsDependency getDecentHolograms();
 
-    CitizensDependency getCitizens();
+    ZNPCsPlusDependency getZNPCsPlus();
 
     NMSDependency getNMS();
 

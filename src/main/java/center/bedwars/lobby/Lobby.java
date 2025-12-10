@@ -3,6 +3,8 @@ package center.bedwars.lobby;
 import center.bedwars.lobby.command.ICommandService;
 import center.bedwars.lobby.configuration.IConfigurationService;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
+import center.bedwars.lobby.constant.ChannelConstants;
+import center.bedwars.lobby.constant.LogMessages;
 import center.bedwars.lobby.database.IDatabaseService;
 import center.bedwars.lobby.dependency.IDependencyService;
 import center.bedwars.lobby.expansion.PlayerExpansion;
@@ -12,14 +14,13 @@ import center.bedwars.lobby.injection.ServiceManager;
 import center.bedwars.lobby.listener.IListenerService;
 import center.bedwars.lobby.menu.IMenuService;
 import center.bedwars.lobby.nametag.INametagService;
-import center.bedwars.lobby.nms.INMSService;
 import center.bedwars.lobby.parkour.IParkourService;
 import center.bedwars.lobby.scoreboard.IScoreboardService;
 import center.bedwars.lobby.sync.ILobbySyncService;
 import center.bedwars.lobby.sync.IPlayerSyncService;
 import center.bedwars.lobby.tablist.ITablistService;
 import center.bedwars.lobby.visibility.IPlayerVisibilityService;
-import center.bedwars.lobby.snow.ISnowService;
+
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import lombok.Getter;
@@ -54,7 +55,6 @@ public final class Lobby extends JavaPlugin {
                 .getNetworkHandler()
                 .getServerName();
 
-        serviceManager.enable(INMSService.class);
         serviceManager.enable(IDatabaseService.class);
 
         serviceManager.enable(ICommandService.class);
@@ -69,7 +69,6 @@ public final class Lobby extends JavaPlugin {
 
         serviceManager.enable(IPlayerSyncService.class);
         serviceManager.enable(ILobbySyncService.class);
-        serviceManager.enable(ISnowService.class);
 
         serviceManager.enable(IListenerService.class);
 
@@ -77,14 +76,14 @@ public final class Lobby extends JavaPlugin {
         configService.saveConfigurations();
         configService.reloadConfigurations();
 
-        getLogger().info("BedWarsLobby enabled successfully!");
+        getLogger().info(LogMessages.PLUGIN_ENABLED);
 
         if (serviceManager.get(IDependencyService.class).getPlaceholderAPI().isPresent()) {
             this.playerExpansion = new PlayerExpansion();
             playerExpansion.register();
         }
 
-        getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        getServer().getMessenger().registerOutgoingPluginChannel(this, ChannelConstants.BUNGEECORD);
     }
 
     @Override
@@ -100,8 +99,8 @@ public final class Lobby extends JavaPlugin {
             serviceManager.disableAll();
         }
 
-        getServer().getMessenger().unregisterOutgoingPluginChannel(this, "BungeeCord");
+        getServer().getMessenger().unregisterOutgoingPluginChannel(this, ChannelConstants.BUNGEECORD);
 
-        getLogger().info("BedWarsLobby disabled!");
+        getLogger().info(LogMessages.PLUGIN_DISABLED);
     }
 }

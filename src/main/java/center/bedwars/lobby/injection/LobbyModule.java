@@ -21,8 +21,6 @@ import center.bedwars.lobby.menu.IMenuService;
 import center.bedwars.lobby.menu.MenuService;
 import center.bedwars.lobby.nametag.INametagService;
 import center.bedwars.lobby.nametag.NametagService;
-import center.bedwars.lobby.nms.INMSService;
-import center.bedwars.lobby.nms.NMSService;
 import center.bedwars.lobby.parkour.IParkourService;
 import center.bedwars.lobby.parkour.ParkourService;
 import center.bedwars.lobby.scoreboard.IScoreboardService;
@@ -36,8 +34,7 @@ import center.bedwars.lobby.tablist.ITablistService;
 import center.bedwars.lobby.tablist.TablistService;
 import center.bedwars.lobby.visibility.IPlayerVisibilityService;
 import center.bedwars.lobby.visibility.PlayerVisibilityService;
-import center.bedwars.lobby.snow.ISnowService;
-import center.bedwars.lobby.snow.SnowService;
+
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 
@@ -60,7 +57,6 @@ public class LobbyModule extends AbstractModule {
         bind(IMongoService.class).to(MongoService.class).in(Singleton.class);
         bind(IDatabaseService.class).to(DatabaseService.class).in(Singleton.class);
 
-        bind(INMSService.class).to(NMSService.class).in(Singleton.class);
         bind(IHotbarService.class).to(HotbarService.class).in(Singleton.class);
         bind(IPlayerVisibilityService.class).to(PlayerVisibilityService.class).in(Singleton.class);
         bind(IMenuService.class).to(MenuService.class).in(Singleton.class);
@@ -77,6 +73,5 @@ public class LobbyModule extends AbstractModule {
         bind(ICommandService.class).to(CommandService.class).in(Singleton.class);
         bind(IListenerService.class).to(ListenerService.class).in(Singleton.class);
 
-        bind(ISnowService.class).to(SnowService.class).in(Singleton.class);
     }
 }

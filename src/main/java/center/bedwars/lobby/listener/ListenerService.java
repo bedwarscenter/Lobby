@@ -5,7 +5,7 @@ import center.bedwars.lobby.listener.listeners.general.*;
 import center.bedwars.lobby.listener.listeners.hotbar.HotbarListener;
 import center.bedwars.lobby.listener.listeners.important.*;
 import center.bedwars.lobby.listener.listeners.parkour.*;
-import center.bedwars.lobby.listener.listeners.snow.SnowListener;
+
 import center.bedwars.lobby.listener.listeners.sync.*;
 import center.bedwars.lobby.service.AbstractService;
 import com.google.inject.Injector;
@@ -54,10 +54,9 @@ public class ListenerService extends AbstractService implements IListenerService
         register(injector.getInstance(PlayerEnvironmentListener.class));
         register(injector.getInstance(PlayerSafetyListener.class));
         register(injector.getInstance(PlayerRestrictionListener.class));
-        register(injector.getInstance(NPCCreationListener.class));
         register(injector.getInstance(HologramCreationListener.class));
         register(injector.getInstance(PlayerSyncListener.class));
-        register(injector.getInstance(SnowListener.class));
+
         register(injector.getInstance(EntityPacketListener.class));
     }
 

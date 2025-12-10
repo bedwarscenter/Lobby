@@ -1,33 +1,13 @@
 package center.bedwars.lobby.dependency.dependencies;
 
-import org.bukkit.Bukkit;
+import center.bedwars.lobby.constant.DependencyConstants;
+import center.bedwars.lobby.dependency.AbstractDependency;
 
-public class AlonsoLevelsDependency {
+public final class AlonsoLevelsDependency extends AbstractDependency {
 
-    private static final String DEPENDENCY_NAME = "AlonsoLevels";
-
-    private final boolean present;
+    private static final String API_CLASS = "com.alonsoaliaga.alonsolevels.api.AlonsoLevelsAPI";
 
     public AlonsoLevelsDependency() {
-        boolean isPresent = false;
-
-        try {
-            Class.forName("com.alonsoaliaga.alonsolevels.api.AlonsoLevelsAPI");
-            if (Bukkit.getPluginManager().getPlugin(DEPENDENCY_NAME) != null) {
-                isPresent = true;
-            }
-        } catch (NoClassDefFoundError | ClassNotFoundException ignored) {
-        }
-
-        this.present = isPresent;
+        super(DependencyConstants.ALONSO_LEVELS, API_CLASS);
     }
-
-    public String getDependencyName() {
-        return DEPENDENCY_NAME;
-    }
-
-    public boolean isApiAvailable() {
-        return present;
-    }
-
 }

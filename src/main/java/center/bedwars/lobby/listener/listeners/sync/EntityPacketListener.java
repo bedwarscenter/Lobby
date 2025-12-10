@@ -3,7 +3,7 @@ package center.bedwars.lobby.listener.listeners.sync;
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.sync.IPlayerSyncService;
 import center.bedwars.lobby.sync.serialization.PlayerSerializer.PlayerSyncAction;
-import center.bedwars.lobby.nms.netty.NettyService;
+import center.bedwars.api.nms.netty.NettyManager;
 import com.google.inject.Inject;
 import net.minecraft.server.v1_8_R3.*;
 import org.bukkit.Location;
@@ -41,7 +41,7 @@ public final class EntityPacketListener implements Listener {
         if (!SettingsConfiguration.PLAYER_SYNC.ENABLED)
             return;
         playerSyncService.handlePlayerQuit(e.getPlayer());
-        NettyService.cleanup(e.getPlayer());
+        NettyManager.cleanup(e.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -80,13 +80,13 @@ public final class EntityPacketListener implements Listener {
     }
 
     private void setupIncoming(Player player) {
-        NettyService.listenIncoming(player, "arm_animation", PacketPlayInArmAnimation.class,
+        NettyManager.listenIncoming(player, "arm_animation", PacketPlayInArmAnimation.class,
                 (p, packet) -> {
                     playerSyncService.broadcast(p, PlayerSyncAction.ANIMATION, "0");
-                    NettyService.broadcastSwing(p, true);
+                    NettyManager.broadcastSwing(p, true);
                 });
 
-        NettyService.listenIncoming(player, "entity_action", PacketPlayInEntityAction.class, (p, packet) -> {
+        NettyManager.listenIncoming(player, "entity_action", PacketPlayInEntityAction.class, (p, packet) -> {
             PacketPlayInEntityAction.EnumPlayerAction action = packet.b();
             switch (action) {
                 case START_SNEAKING:
@@ -108,29 +108,29 @@ public final class EntityPacketListener implements Listener {
             }
         });
 
-        NettyService.listenIncoming(player, "held_item", PacketPlayInHeldItemSlot.class,
+        NettyManager.listenIncoming(player, "held_item", PacketPlayInHeldItemSlot.class,
                 (p, packet) -> playerSyncService.broadcast(p, PlayerSyncAction.HELD_ITEM, String.valueOf(packet.a())));
 
-        NettyService.listenIncoming(player, "use_entity", PacketPlayInUseEntity.class, (p, packet) -> {
+        NettyManager.listenIncoming(player, "use_entity", PacketPlayInUseEntity.class, (p, packet) -> {
             if (packet.a() == PacketPlayInUseEntity.EnumEntityUseAction.ATTACK) {
                 playerSyncService.broadcast(p, PlayerSyncAction.ANIMATION, "0");
-                NettyService.broadcastSwing(p, true);
+                NettyManager.broadcastSwing(p, true);
             }
         });
 
-        NettyService.listenIncoming(player, "block_dig", PacketPlayInBlockDig.class, (p, packet) -> {
+        NettyManager.listenIncoming(player, "block_dig", PacketPlayInBlockDig.class, (p, packet) -> {
             PacketPlayInBlockDig.EnumPlayerDigType type = packet.c();
             if (type == PacketPlayInBlockDig.EnumPlayerDigType.START_DESTROY_BLOCK ||
                     type == PacketPlayInBlockDig.EnumPlayerDigType.ABORT_DESTROY_BLOCK) {
                 playerSyncService.broadcast(p, PlayerSyncAction.ANIMATION, "0");
-                NettyService.broadcastSwing(p, true);
+                NettyManager.broadcastSwing(p, true);
             }
         });
 
-        NettyService.listenIncoming(player, "block_place", PacketPlayInBlockPlace.class, (p, packet) -> {
+        NettyManager.listenIncoming(player, "block_place", PacketPlayInBlockPlace.class, (p, packet) -> {
             if (packet.getFace() != -1 && packet.getItemStack() != null) {
                 playerSyncService.broadcast(p, PlayerSyncAction.ANIMATION, "1");
-                NettyService.broadcastSwing(p, true);
+                NettyManager.broadcastSwing(p, true);
             }
         });
     }

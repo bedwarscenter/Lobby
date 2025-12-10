@@ -1,5 +1,7 @@
 package center.bedwars.lobby.dependency.dependencies;
 
+import center.bedwars.lobby.constant.DependencyConstants;
+import center.bedwars.lobby.dependency.IDependency;
 import lombok.Getter;
 import xyz.refinedev.spigot.features.chunk.IChunkAPI;
 
@@ -7,10 +9,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Getter
-@SuppressWarnings("unused")
-public class CarbonDependency {
+public final class CarbonDependency implements IDependency {
 
-    private static final String DEPENDENCY_NAME = "Carbon";
+    private static final String API_CLASS = "xyz.refinedev.spigot.features.chunk.IChunkAPI";
     private static final Logger LOGGER = Logger.getLogger(CarbonDependency.class.getName());
 
     private final boolean present;
@@ -21,34 +22,36 @@ public class CarbonDependency {
         boolean isPresent = false;
 
         try {
-
-            Class.forName("xyz.refinedev.spigot.features.chunk.IChunkAPI");
-
+            Class.forName(API_CLASS);
             tempChunkRegistry = IChunkAPI.instance();
             if (tempChunkRegistry != null) {
                 isPresent = true;
             } else {
-                LOGGER.warning("[" + DEPENDENCY_NAME + "] IChunkAPI instance is null!");
+                LOGGER.warning("[" + DependencyConstants.CARBON + "] IChunkAPI instance is null!");
             }
-
         } catch (NoClassDefFoundError e) {
-            LOGGER.log(Level.WARNING, "[" + DEPENDENCY_NAME + "] NoClassDefFoundError: " + e.getMessage());
-            LOGGER.warning("[" + DEPENDENCY_NAME + "] Make sure you are using Carbon");
+            LOGGER.log(Level.WARNING, "[" + DependencyConstants.CARBON + "] NoClassDefFoundError: " + e.getMessage());
         } catch (ClassNotFoundException e) {
-            LOGGER.log(Level.WARNING, "[" + DEPENDENCY_NAME + "] ClassNotFoundException: " + e.getMessage());
-            LOGGER.warning("[" + DEPENDENCY_NAME + "] You are not using Carbon");
+            LOGGER.log(Level.WARNING, "[" + DependencyConstants.CARBON + "] ClassNotFoundException: " + e.getMessage());
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "[" + DEPENDENCY_NAME + "] Unexpected error while loading: ", e);
+            LOGGER.log(Level.SEVERE, "[" + DependencyConstants.CARBON + "] Unexpected error while loading: ", e);
         }
 
         this.present = isPresent;
         this.chunkRegistry = tempChunkRegistry;
     }
 
+    @Override
     public String getDependencyName() {
-        return DEPENDENCY_NAME;
+        return DependencyConstants.CARBON;
     }
 
+    @Override
+    public boolean isPresent() {
+        return present;
+    }
+
+    @Override
     public boolean isApiAvailable() {
         return present && chunkRegistry != null;
     }

@@ -2,7 +2,7 @@ package center.bedwars.lobby.listener.listeners.general;
 
 import center.bedwars.lobby.configuration.configurations.SettingsConfiguration;
 import center.bedwars.lobby.hotbar.IHotbarService;
-import center.bedwars.lobby.nms.NMSHelper;
+import center.bedwars.api.nms.NMSHelper;
 import com.google.inject.Inject;
 import net.minecraft.server.v1_8_R3.*;
 import org.bukkit.Bukkit;

@@ -1,113 +1,168 @@
 package center.bedwars.lobby.sync.handlers;
 
 import center.bedwars.lobby.Lobby;
+import center.bedwars.lobby.constant.LogMessages;
+import center.bedwars.lobby.constant.NPCConstants;
 import center.bedwars.lobby.dependency.IDependencyService;
+import center.bedwars.lobby.dependency.dependencies.ZNPCsPlusDependency;
 import center.bedwars.lobby.sync.SyncEvent;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.serialization.Serializer;
 import com.google.inject.Inject;
-import net.citizensnpcs.api.npc.NPC;
-import net.citizensnpcs.api.npc.NPCRegistry;
-import net.citizensnpcs.trait.SkinTrait;
+import lol.pyr.znpcsplus.api.entity.EntityProperty;
+import lol.pyr.znpcsplus.api.npc.Npc;
+import lol.pyr.znpcsplus.api.npc.NpcEntry;
+import lol.pyr.znpcsplus.api.npc.NpcRegistry;
+import lol.pyr.znpcsplus.api.npc.NpcType;
+import lol.pyr.znpcsplus.api.skin.SkinDescriptor;
+import lol.pyr.znpcsplus.util.NpcLocation;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.entity.EntityType;
 
 public class NPCSyncHandler implements ISyncHandler {
 
     private final Lobby plugin;
-    private final NPCRegistry registry;
+    private final ZNPCsPlusDependency znpcsPlus;
 
     @Inject
     public NPCSyncHandler(Lobby plugin, IDependencyService dependencyService) {
         this.plugin = plugin;
-        this.registry = dependencyService.getCitizens().getNpcRegistry();
+        this.znpcsPlus = dependencyService.getZNPCsPlus();
     }
 
     @Override
     public void handle(SyncEvent event) {
-        try {
-            Serializer.NPCData npcData = Serializer.deserialize(event.getData(), Serializer.NPCData.class);
+        if (!znpcsPlus.isApiAvailable()) {
+            plugin.getLogger().warning(LogMessages.ZNPCS_NOT_AVAILABLE);
+            return;
+        }
 
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                try {
-                    if (event.getType() == SyncEventType.NPC_CREATE) {
-                        handleCreate(npcData);
-                    } else if (event.getType() == SyncEventType.NPC_DELETE) {
-                        handleDelete(npcData.npcId);
-                    } else if (event.getType() == SyncEventType.NPC_UPDATE) {
-                        handleUpdate(npcData);
-                    }
-                } catch (Exception e) {
-                    plugin.getLogger().warning("Failed to sync NPC: " + e.getMessage());
-                }
-            });
+        Serializer.NPCData npcData = deserializeNpcData(event);
+        if (npcData == null) {
+            return;
+        }
+
+        Bukkit.getScheduler().runTask(plugin, () -> processNpcEvent(event, npcData));
+    }
+
+    private Serializer.NPCData deserializeNpcData(SyncEvent event) {
+        try {
+            return Serializer.deserialize(event.getData(), Serializer.NPCData.class);
         } catch (Exception e) {
             e.printStackTrace();
+            return null;
+        }
+    }
+
+    private void processNpcEvent(SyncEvent event, Serializer.NPCData npcData) {
+        try {
+            switch (event.getType()) {
+                case NPC_CREATE:
+                    handleCreate(npcData);
+                    break;
+                case NPC_DELETE:
+                    handleDelete(npcData.npcId);
+                    break;
+                case NPC_UPDATE:
+                    handleUpdate(npcData);
+                    break;
+                default:
+                    break;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning(String.format(LogMessages.NPC_SYNC_FAILED, e.getMessage()));
         }
     }
 
     private void handleCreate(Serializer.NPCData data) {
-        Location loc = data.location.toLocation(Bukkit.getServer());
-        if (loc == null)
+        NpcRegistry registry = znpcsPlus.getNpcRegistry();
+        if (registry == null) {
             return;
-
-        NPC existingNpc = findNPC(data.npcId);
-        if (existingNpc != null) {
-            existingNpc.destroy();
         }
 
-        NPC npc = registry.createNPC(EntityType.PLAYER, data.name);
-        npc.spawn(loc);
+        Location loc = data.location.toLocation(Bukkit.getServer());
+        if (loc == null || loc.getWorld() == null) {
+            return;
+        }
+
+        String npcId = NPCConstants.NPC_ID_PREFIX + data.npcId;
+        deleteExistingNpc(registry, npcId);
+
+        NpcType playerType = znpcsPlus.getNpcTypeRegistry().getByName(NPCConstants.NPC_TYPE_PLAYER);
+        if (playerType == null) {
+            plugin.getLogger().warning(LogMessages.NPC_TYPE_NOT_FOUND);
+            return;
+        }
+
+        NpcLocation npcLocation = new NpcLocation(loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+        NpcEntry entry = registry.create(npcId, loc.getWorld(), playerType, npcLocation);
+        entry.setProcessed(true);
+        entry.setSave(false);
+
+        Npc npc = entry.getNpc();
+        npc.setEnabled(true);
 
         if (!data.texture.isEmpty() && !data.signature.isEmpty()) {
             applySkin(npc, data.texture, data.signature);
+        }
+
+        if (data.name != null && !data.name.isEmpty()) {
+            npc.getHologram().insertLine(0, data.name);
+        }
+    }
+
+    private void deleteExistingNpc(NpcRegistry registry, String npcId) {
+        NpcEntry existingEntry = registry.getById(npcId);
+        if (existingEntry != null) {
+            registry.delete(npcId);
         }
     }
 
     private void handleDelete(short npcId) {
-        NPC npc = findNPC(npcId);
-        if (npc != null) {
-            npc.destroy();
+        NpcRegistry registry = znpcsPlus.getNpcRegistry();
+        if (registry == null) {
+            return;
+        }
+
+        String id = NPCConstants.NPC_ID_PREFIX + npcId;
+        NpcEntry entry = registry.getById(id);
+        if (entry != null) {
+            registry.delete(id);
         }
     }
 
     private void handleUpdate(Serializer.NPCData data) {
-        NPC npc = findNPC(data.npcId);
-        if (npc == null)
+        NpcRegistry registry = znpcsPlus.getNpcRegistry();
+        if (registry == null) {
             return;
-
-        Location loc = data.location.toLocation(Bukkit.getServer());
-        if (loc != null) {
-            if (npc.isSpawned()) {
-                npc.teleport(loc, null);
-            } else {
-                npc.spawn(loc);
-            }
         }
 
-        npc.setName(data.name);
+        String npcId = NPCConstants.NPC_ID_PREFIX + data.npcId;
+        NpcEntry entry = registry.getById(npcId);
+        if (entry == null) {
+            handleCreate(data);
+            return;
+        }
+
+        Npc npc = entry.getNpc();
+        Location loc = data.location.toLocation(Bukkit.getServer());
+        if (loc != null) {
+            NpcLocation npcLocation = new NpcLocation(loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+            npc.setLocation(npcLocation);
+        }
 
         if (!data.texture.isEmpty() && !data.signature.isEmpty()) {
             applySkin(npc, data.texture, data.signature);
         }
     }
 
-    private void applySkin(NPC npc, String texture, String signature) {
-        SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
-        skin.setSkinPersistent(npc.getUniqueId().toString(), signature, texture);
-    }
-
-    private NPC findNPC(short npcId) {
-        NPC found = registry.getById(npcId);
-        if (found != null)
-            return found;
-
-        for (NPC npc : registry) {
-            if (npc.getId() == npcId) {
-                return npc;
-            }
+    @SuppressWarnings("unchecked")
+    private void applySkin(Npc npc, String texture, String signature) {
+        SkinDescriptor skin = znpcsPlus.getSkinDescriptorFactory().createStaticDescriptor(texture, signature);
+        EntityProperty<SkinDescriptor> skinProperty = (EntityProperty<SkinDescriptor>) znpcsPlus.getPropertyRegistry()
+                .getByName(NPCConstants.SKIN_PROPERTY_NAME);
+        if (skinProperty != null) {
+            npc.setProperty(skinProperty, skin);
         }
-        return null;
     }
 }

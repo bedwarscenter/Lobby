@@ -3,7 +3,7 @@ package center.bedwars.lobby.listener.listeners.parkour;
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.parkour.IParkourService;
 import center.bedwars.lobby.parkour.session.ParkourSession;
-import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.api.util.ColorUtil;
 import com.google.inject.Inject;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;

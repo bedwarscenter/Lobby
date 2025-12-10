@@ -2,7 +2,7 @@ package center.bedwars.lobby.hotbar;
 
 import center.bedwars.lobby.configuration.configurations.ItemsConfiguration;
 import center.bedwars.lobby.service.AbstractService;
-import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.api.util.ColorUtil;
 import center.bedwars.lobby.util.ItemBuilder;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;

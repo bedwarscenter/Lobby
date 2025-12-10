@@ -10,7 +10,7 @@ import center.bedwars.lobby.parkour.IParkourService;
 import center.bedwars.lobby.scoreboard.IScoreboardService;
 import center.bedwars.lobby.tablist.ITablistService;
 import center.bedwars.lobby.visibility.IPlayerVisibilityService;
-import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.api.util.ColorUtil;
 import center.bedwars.lobby.util.SpawnUtil;
 import com.alonsoaliaga.alonsolevels.api.AlonsoLevelsAPI;
 import com.alonsoaliaga.alonsolevels.others.PlayerData;

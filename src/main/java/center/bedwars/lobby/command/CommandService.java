@@ -41,6 +41,5 @@ public class CommandService extends AbstractService implements ICommandService {
         commandHandler.register(injector.getInstance(SyncCommand.class));
         commandHandler.register(injector.getInstance(CosmeticsCommand.class));
         commandHandler.register(injector.getInstance(CollectiblesCommand.class));
-        commandHandler.register(injector.getInstance(ToggleSnowCommand.class));
     }
 }

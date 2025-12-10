@@ -1,10 +1,10 @@
 package center.bedwars.lobby.parkour.task;
 
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
-import center.bedwars.lobby.nms.NMSHelper;
+import center.bedwars.api.nms.NMSHelper;
 
 import center.bedwars.lobby.parkour.session.ParkourSession;
-import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.api.util.ColorUtil;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
 import net.minecraft.server.v1_8_R3.PacketPlayOutChat;
 import org.bukkit.Bukkit;

@@ -1,5 +1,8 @@
 package center.bedwars.lobby.tablist;
 
+import center.bedwars.api.nms.NMSHelper;
+import center.bedwars.api.tablist.Tablist;
+import center.bedwars.api.util.ColorUtil;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.NametagConfiguration;
 import center.bedwars.lobby.configuration.configurations.TablistConfiguration;
@@ -9,10 +12,7 @@ import center.bedwars.lobby.dependency.dependencies.PlaceholderAPIDependency;
 import center.bedwars.lobby.nametag.INametagService;
 import center.bedwars.lobby.nametag.NametagFormatter;
 import center.bedwars.lobby.nametag.NametagService;
-import center.bedwars.lobby.nms.NMSHelper;
 import center.bedwars.lobby.service.AbstractService;
-
-import center.bedwars.lobby.util.ColorUtil;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
 import net.minecraft.server.v1_8_R3.PacketPlayOutPlayerInfo;
@@ -38,7 +38,7 @@ public class TablistService extends AbstractService implements ITablistService {
     private final Lobby plugin;
     private final IDependencyService dependencyService;
     private final Provider<INametagService> nametagServiceProvider;
-    private final Map<UUID, PlayerTablist> tablists = new ConcurrentHashMap<>();
+    private final Map<UUID, Tablist> tablists = new ConcurrentHashMap<>();
 
     private BukkitTask updateTask;
 
@@ -98,7 +98,7 @@ public class TablistService extends AbstractService implements ITablistService {
     @Override
     public void createTablist(Player player) {
         tablists.computeIfAbsent(player.getUniqueId(), uuid -> {
-            PlayerTablist tablist = new PlayerTablist(player);
+            Tablist tablist = new Tablist(player);
             updateTablist(player);
             return tablist;
         });
@@ -111,7 +111,7 @@ public class TablistService extends AbstractService implements ITablistService {
 
     @Override
     public void updateTablist(Player player) {
-        PlayerTablist tablist = tablists.get(player.getUniqueId());
+        Tablist tablist = tablists.get(player.getUniqueId());
         if (tablist == null)
             return;
 
@@ -156,19 +156,26 @@ public class TablistService extends AbstractService implements ITablistService {
             IRank rank = getPlayerRank(realUUID);
             String rankName = (rank != null && rank.getName() != null && !rank.getName().isEmpty())
                     ? rank.getName()
-                    : "_DEFAULT_";
+                    : "Default";
 
             NametagConfiguration.GroupConfig config = formatter.getConfig(player, rankName);
 
-            String tabPrefix = formatter.parsePlaceholders(player, config.tabprefix);
-            String tabSuffix = formatter.parsePlaceholders(player, config.tabsuffix);
+            String rankPrefix = (rank != null && rank.getPrefix() != null) ? rank.getPrefix() : "";
+
+            String tabPrefix = config.tabprefix.replace("%phoenix_player_rank_prefix%", rankPrefix);
+            String tabSuffix = config.tabsuffix.replace("%phoenix_player_rank_prefix%", rankPrefix);
+
+            tabPrefix = formatter.parsePlaceholders(player, tabPrefix);
+            tabSuffix = formatter.parsePlaceholders(player, tabSuffix);
+
             String formattedName = ColorUtil.color(tabPrefix + player.getName() + tabSuffix);
 
             int priority = (rank != null && rank.getName() != null && !rank.getName().isEmpty())
                     ? rank.getPriority()
                     : -1;
 
-            entries.add(new PlayerEntry(player, formattedName, priority, rank));
+            entries.add(new PlayerEntry(player, formattedName, priority, rank,
+                    ColorUtil.color(tabPrefix), ColorUtil.color(tabSuffix)));
         }
 
         entries.sort((a, b) -> {
@@ -191,7 +198,7 @@ public class TablistService extends AbstractService implements ITablistService {
                 for (PlayerEntry entry : entries) {
                     if (entry.player().isOnline()) {
                         updatePlayerDisplayName(viewer, entry);
-                        setPlayerTeamOrder(viewer, entry.player(), index);
+                        setPlayerTeamOrder(viewer, entry.player(), index, entry.prefix(), entry.suffix());
                         index++;
                     }
                 }
@@ -199,9 +206,8 @@ public class TablistService extends AbstractService implements ITablistService {
         });
     }
 
-    private void setPlayerTeamOrder(Player viewer, Player target, int order) {
+    private void setPlayerTeamOrder(Player viewer, Player target, int order, String prefix, String suffix) {
         try {
-
             String teamName = "sb" + String.format("%03d", order);
 
             PacketPlayOutScoreboardTeam removePacket = new PacketPlayOutScoreboardTeam();
@@ -213,8 +219,8 @@ public class TablistService extends AbstractService implements ITablistService {
             setTeamField(createPacket, "a", teamName);
             setTeamField(createPacket, "h", 0);
             setTeamField(createPacket, "b", "");
-            setTeamField(createPacket, "c", "");
-            setTeamField(createPacket, "d", "");
+            setTeamField(createPacket, "c", truncateTeamText(prefix, 16));
+            setTeamField(createPacket, "d", truncateTeamText(suffix, 16));
             setTeamField(createPacket, "i", 0);
             setTeamField(createPacket, "e", "always");
             setTeamField(createPacket, "f", -1);
@@ -226,6 +232,12 @@ public class TablistService extends AbstractService implements ITablistService {
             NMSHelper.sendPacket(viewer, createPacket);
         } catch (Exception e) {
         }
+    }
+
+    private String truncateTeamText(String text, int maxLength) {
+        if (text == null)
+            return "";
+        return text.length() > maxLength ? text.substring(0, maxLength) : text;
     }
 
     private void setTeamField(Object packet, String fieldName, Object value) {

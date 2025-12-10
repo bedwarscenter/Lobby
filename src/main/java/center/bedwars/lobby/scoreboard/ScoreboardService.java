@@ -1,11 +1,12 @@
 package center.bedwars.lobby.scoreboard;
 
+import center.bedwars.api.scoreboard.Scoreboard;
+import center.bedwars.api.util.ColorUtil;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.ScoreboardConfiguration;
 import center.bedwars.lobby.dependency.IDependencyService;
 import center.bedwars.lobby.dependency.dependencies.PlaceholderAPIDependency;
 import center.bedwars.lobby.service.AbstractService;
-import center.bedwars.lobby.util.ColorUtil;
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -24,7 +25,7 @@ public class ScoreboardService extends AbstractService implements IScoreboardSer
 
     private final Lobby plugin;
     private final IDependencyService dependencyService;
-    private final Map<UUID, PlayerScoreboard> scoreboards = new ConcurrentHashMap<>();
+    private final Map<UUID, Scoreboard> scoreboards = new ConcurrentHashMap<>();
     private final TitleAnimator titleAnimator = new TitleAnimator();
     private BukkitTask updateTask;
 
@@ -73,7 +74,7 @@ public class ScoreboardService extends AbstractService implements IScoreboardSer
     }
 
     private void removeAllScoreboards() {
-        scoreboards.values().forEach(PlayerScoreboard::remove);
+        scoreboards.values().forEach(Scoreboard::remove);
         scoreboards.clear();
     }
 
@@ -85,7 +86,7 @@ public class ScoreboardService extends AbstractService implements IScoreboardSer
     @Override
     public void createScoreboard(Player player) {
         scoreboards.computeIfAbsent(player.getUniqueId(), uuid -> {
-            PlayerScoreboard scoreboard = new PlayerScoreboard(player);
+            Scoreboard scoreboard = new Scoreboard(player);
             Bukkit.getScheduler().runTask(plugin, scoreboard::create);
             updateScoreboard(player);
             return scoreboard;
@@ -94,7 +95,7 @@ public class ScoreboardService extends AbstractService implements IScoreboardSer
 
     @Override
     public void removeScoreboard(Player player) {
-        PlayerScoreboard scoreboard = scoreboards.remove(player.getUniqueId());
+        Scoreboard scoreboard = scoreboards.remove(player.getUniqueId());
         if (scoreboard != null) {
             Bukkit.getScheduler().runTask(plugin, scoreboard::remove);
         }
@@ -102,7 +103,7 @@ public class ScoreboardService extends AbstractService implements IScoreboardSer
 
     @Override
     public void updateScoreboard(Player player) {
-        PlayerScoreboard scoreboard = scoreboards.get(player.getUniqueId());
+        Scoreboard scoreboard = scoreboards.get(player.getUniqueId());
         if (scoreboard == null)
             return;
 

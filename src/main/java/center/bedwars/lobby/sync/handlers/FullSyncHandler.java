@@ -57,9 +57,9 @@ public class FullSyncHandler implements ISyncHandler {
 
     private void sendTitle(org.bukkit.entity.Player p, String title, String subtitle, int in, int stay, int out) {
         net.minecraft.server.v1_8_R3.IChatBaseComponent t = net.minecraft.server.v1_8_R3.IChatBaseComponent.ChatSerializer
-                .a("{\"text\":\"" + center.bedwars.lobby.util.ColorUtil.color(title) + "\"}");
+                .a("{\"text\":\"" + center.bedwars.api.util.ColorUtil.color(title) + "\"}");
         net.minecraft.server.v1_8_R3.IChatBaseComponent s = net.minecraft.server.v1_8_R3.IChatBaseComponent.ChatSerializer
-                .a("{\"text\":\"" + center.bedwars.lobby.util.ColorUtil.color(subtitle) + "\"}");
+                .a("{\"text\":\"" + center.bedwars.api.util.ColorUtil.color(subtitle) + "\"}");
         ((org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer) p).getHandle().playerConnection
                 .sendPacket(new net.minecraft.server.v1_8_R3.PacketPlayOutTitle(
                         net.minecraft.server.v1_8_R3.PacketPlayOutTitle.EnumTitleAction.TITLE, t, in, stay, out));
@@ -70,7 +70,7 @@ public class FullSyncHandler implements ISyncHandler {
 
     private void sendActionBar(org.bukkit.entity.Player p, String msg) {
         net.minecraft.server.v1_8_R3.IChatBaseComponent c = net.minecraft.server.v1_8_R3.IChatBaseComponent.ChatSerializer
-                .a("{\"text\":\"" + center.bedwars.lobby.util.ColorUtil.color(msg) + "\"}");
+                .a("{\"text\":\"" + center.bedwars.api.util.ColorUtil.color(msg) + "\"}");
         ((org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer) p).getHandle().playerConnection
                 .sendPacket(new net.minecraft.server.v1_8_R3.PacketPlayOutChat(c, (byte) 2));
     }

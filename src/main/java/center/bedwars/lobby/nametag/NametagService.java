@@ -1,11 +1,13 @@
 package center.bedwars.lobby.nametag;
 
+import center.bedwars.api.nametag.Nametag;
+import center.bedwars.api.nametag.NametagData;
+import center.bedwars.api.util.ColorUtil;
 import center.bedwars.lobby.Lobby;
 import center.bedwars.lobby.configuration.configurations.NametagConfiguration;
 import center.bedwars.lobby.dependency.IDependencyService;
 import center.bedwars.lobby.dependency.dependencies.PhoenixDependency;
 import center.bedwars.lobby.service.AbstractService;
-import center.bedwars.lobby.util.ColorUtil;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -25,7 +27,7 @@ public class NametagService extends AbstractService implements INametagService {
 
     private final Lobby plugin;
     private final IDependencyService dependencyService;
-    private final Map<UUID, PlayerNametag> nametags = new ConcurrentHashMap<>();
+    private final Map<UUID, Nametag> nametags = new ConcurrentHashMap<>();
     @Getter
     private final NametagFormatter formatter;
     private BukkitTask updateTask;
@@ -75,7 +77,7 @@ public class NametagService extends AbstractService implements INametagService {
     }
 
     private void removeAllNametags() {
-        nametags.values().forEach(PlayerNametag::remove);
+        nametags.values().forEach(Nametag::remove);
         nametags.clear();
     }
 
@@ -86,7 +88,7 @@ public class NametagService extends AbstractService implements INametagService {
     @Override
     public void createNametag(Player player) {
         nametags.computeIfAbsent(player.getUniqueId(), uuid -> {
-            PlayerNametag nametag = new PlayerNametag(player);
+            Nametag nametag = new Nametag(player);
             nametag.create();
             updateNametag(player);
             return nametag;
@@ -95,7 +97,7 @@ public class NametagService extends AbstractService implements INametagService {
 
     @Override
     public void removeNametag(Player player) {
-        PlayerNametag nametag = nametags.remove(player.getUniqueId());
+        Nametag nametag = nametags.remove(player.getUniqueId());
         if (nametag != null) {
             nametag.remove();
         }
@@ -103,7 +105,7 @@ public class NametagService extends AbstractService implements INametagService {
 
     @Override
     public void updateNametag(Player player) {
-        PlayerNametag nametag = nametags.get(player.getUniqueId());
+        Nametag nametag = nametags.get(player.getUniqueId());
         if (nametag == null)
             return;
 

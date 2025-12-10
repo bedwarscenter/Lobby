@@ -2,7 +2,7 @@ package center.bedwars.lobby.command.commands;
 
 import center.bedwars.lobby.configuration.configurations.LanguageConfiguration;
 import center.bedwars.lobby.parkour.IParkourService;
-import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.api.util.ColorUtil;
 import com.google.inject.Inject;
 import net.j4c0b3y.api.command.annotation.command.Command;
 import net.j4c0b3y.api.command.annotation.parameter.classifier.Sender;

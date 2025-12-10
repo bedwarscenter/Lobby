@@ -1,15 +1,14 @@
 package center.bedwars.lobby.dependency.dependencies;
 
+import center.bedwars.lobby.constant.DependencyConstants;
+import center.bedwars.lobby.dependency.IDependency;
 import lombok.Getter;
 import xyz.refinedev.phoenix.CommonPlatform;
 import xyz.refinedev.phoenix.Phoenix;
 import xyz.refinedev.phoenix.PlatformGetter;
 
 @Getter
-@SuppressWarnings({"unused"})
-public final class PhoenixDependency {
-
-    private static final String DEPENDENCY_NAME = "Phoenix";
+public final class PhoenixDependency implements IDependency {
 
     private final boolean present;
     private final Phoenix api;
@@ -38,10 +37,17 @@ public final class PhoenixDependency {
         this.present = isPresent;
     }
 
+    @Override
     public String getDependencyName() {
-        return DEPENDENCY_NAME;
+        return DependencyConstants.PHOENIX;
     }
 
+    @Override
+    public boolean isPresent() {
+        return present;
+    }
+
+    @Override
     public boolean isApiAvailable() {
         return present && api != null;
     }

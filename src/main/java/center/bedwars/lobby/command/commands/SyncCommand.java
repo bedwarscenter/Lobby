@@ -8,7 +8,7 @@ import center.bedwars.lobby.sync.ILobbySyncService;
 import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.handlers.ChunkSnapshotSyncHandler;
 import center.bedwars.lobby.sync.serialization.Serializer;
-import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.api.util.ColorUtil;
 import com.google.inject.Inject;
 import net.j4c0b3y.api.command.annotation.command.Command;
 import net.j4c0b3y.api.command.annotation.command.Requires;

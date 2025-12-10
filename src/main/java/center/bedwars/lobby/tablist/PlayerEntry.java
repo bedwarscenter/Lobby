@@ -4,12 +4,14 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import xyz.refinedev.phoenix.rank.IRank;
 
-public record PlayerEntry(Player player, String displayName, int priority, IRank rank) {
+public record PlayerEntry(Player player, String displayName, int priority, IRank rank, String prefix, String suffix) {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof PlayerEntry other)) return false;
+        if (this == obj)
+            return true;
+        if (!(obj instanceof PlayerEntry other))
+            return false;
 
         return player.getUniqueId().equals(other.player.getUniqueId());
     }

@@ -1,33 +1,15 @@
 package center.bedwars.lobby.dependency.dependencies;
 
+import center.bedwars.lobby.constant.DependencyConstants;
+import center.bedwars.lobby.dependency.AbstractDependency;
 import lombok.Getter;
-import org.bukkit.Bukkit;
 
 @Getter
-@SuppressWarnings({"unused"})
-public final class PlaceholderAPIDependency {
+public final class PlaceholderAPIDependency extends AbstractDependency {
 
-    private static final String DEPENDENCY_NAME = "PlaceholderAPI";
-
-    private final boolean present;
+    private static final String API_CLASS = "me.clip.placeholderapi.PlaceholderAPI";
 
     public PlaceholderAPIDependency() {
-        boolean isPresent = false;
-
-        try {
-            Class.forName("me.clip.placeholderapi.PlaceholderAPI");
-            isPresent = Bukkit.getPluginManager().getPlugin(DEPENDENCY_NAME) != null;
-        } catch (NoClassDefFoundError | ClassNotFoundException ignored) {
-        }
-
-        this.present = isPresent;
-    }
-
-    public String getDependencyName() {
-        return DEPENDENCY_NAME;
-    }
-
-    public boolean isApiAvailable() {
-        return present;
+        super(DependencyConstants.PLACEHOLDER_API, API_CLASS);
     }
 }

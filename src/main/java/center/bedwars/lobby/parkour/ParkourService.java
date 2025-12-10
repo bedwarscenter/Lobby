@@ -12,7 +12,7 @@ import center.bedwars.lobby.parkour.session.ParkourSession;
 import center.bedwars.lobby.parkour.task.ParkourActionBarTask;
 import center.bedwars.lobby.player.PlayerStateSnapshot;
 import center.bedwars.lobby.service.AbstractService;
-import center.bedwars.lobby.util.ColorUtil;
+import center.bedwars.api.util.ColorUtil;
 import center.bedwars.lobby.util.SpawnUtil;
 import eu.decentsoftware.holograms.api.DHAPI;
 import eu.decentsoftware.holograms.api.holograms.Hologram;

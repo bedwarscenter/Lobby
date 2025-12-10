@@ -14,7 +14,7 @@ public class DependencyService extends AbstractService implements IDependencySer
     private PhoenixDependency phoenix;
     private PlaceholderAPIDependency placeholderAPI;
     private DecentHologramsDependency decentHolograms;
-    private CitizensDependency citizens;
+    private ZNPCsPlusDependency znpcsPlus;
     private NMSDependency nms;
     private AlonsoLevelsDependency alonsoLevels;
 
@@ -32,7 +32,7 @@ public class DependencyService extends AbstractService implements IDependencySer
         this.phoenix = new PhoenixDependency();
         this.nms = new NMSDependency();
         this.decentHolograms = new DecentHologramsDependency();
-        this.citizens = new CitizensDependency();
+        this.znpcsPlus = new ZNPCsPlusDependency();
         this.placeholderAPI = new PlaceholderAPIDependency();
         this.alonsoLevels = new AlonsoLevelsDependency();
     }
@@ -67,8 +67,8 @@ public class DependencyService extends AbstractService implements IDependencySer
     }
 
     @Override
-    public CitizensDependency getCitizens() {
-        return citizens;
+    public ZNPCsPlusDependency getZNPCsPlus() {
+        return znpcsPlus;
     }
 
     @Override
