@@ -249,31 +249,6 @@ public class TablistService extends AbstractService implements ITablistService {
         }
     }
 
-    private List<String> parseGroupOrder() {
-        List<String> groups = new ArrayList<>();
-        for (String sortType : TablistConfiguration.SORTING_TYPES) {
-            if (sortType.startsWith("GROUPS:")) {
-                String groupsPart = sortType.substring(7);
-                for (String group : groupsPart.split(",")) {
-                    for (String g : group.split("\\|")) {
-                        groups.add(g.trim());
-                    }
-                }
-                break;
-            }
-        }
-        return groups;
-    }
-
-    private int getGroupPriority(String rankName, List<String> groupOrder) {
-        for (int i = 0; i < groupOrder.size(); i++) {
-            if (groupOrder.get(i).equalsIgnoreCase(rankName)) {
-                return i;
-            }
-        }
-        return Integer.MAX_VALUE;
-    }
-
     private IRank getPlayerRank(UUID realUUID) {
         PhoenixDependency phoenixDependency = dependencyService.getPhoenix();
         if (phoenixDependency == null || !phoenixDependency.isApiAvailable()) {

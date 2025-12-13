@@ -6,7 +6,6 @@ import center.bedwars.lobby.constant.NPCConstants;
 import center.bedwars.lobby.dependency.IDependencyService;
 import center.bedwars.lobby.dependency.dependencies.ZNPCsPlusDependency;
 import center.bedwars.lobby.sync.SyncEvent;
-import center.bedwars.lobby.sync.SyncEventType;
 import center.bedwars.lobby.sync.serialization.Serializer;
 import com.google.inject.Inject;
 import lol.pyr.znpcsplus.api.entity.EntityProperty;

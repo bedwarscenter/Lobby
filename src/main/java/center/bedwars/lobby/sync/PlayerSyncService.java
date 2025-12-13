@@ -94,20 +94,6 @@ public class PlayerSyncService extends AbstractService implements IPlayerSyncSer
         }, HEARTBEAT_INTERVAL_SEC, HEARTBEAT_INTERVAL_SEC, TimeUnit.SECONDS);
     }
 
-    private void startPositionSync() {
-        executor.scheduleAtFixedRate(() -> {
-            if (!running)
-                return;
-
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Location loc = player.getLocation();
-                String posData = String.format(Locale.US, "%.2f,%.2f,%.2f,%.2f,%.2f,%b",
-                        loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch(), player.isOnGround());
-                broadcast(player, PlayerSyncAction.POSITION, posData);
-            }
-        }, POSITION_SYNC_INTERVAL_MS, POSITION_SYNC_INTERVAL_MS, TimeUnit.MILLISECONDS);
-    }
-
     private void processMessage(byte[] raw) {
         try {
             PlayerSyncPacket packet = PlayerSerializer.deserialize(raw);

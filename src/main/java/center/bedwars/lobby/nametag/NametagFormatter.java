@@ -16,7 +16,6 @@ public class NametagFormatter {
     }
 
     public NametagConfiguration.GroupConfig getConfig(Player player, String rankName) {
-        String worldName = player.getWorld().getName();
         String playerName = player.getName();
         String playerUUID = player.getUniqueId().toString();
 
@@ -36,28 +35,6 @@ public class NametagFormatter {
         }
 
         return NametagConfiguration.GROUPS.getOrDefault("_DEFAULT_", new NametagConfiguration.GroupConfig());
-    }
-
-    private boolean matchesWorld(String pattern, String worldName) {
-        if (pattern.contains(";")) {
-            for (String world : pattern.split(";")) {
-                if (matchesSingleWorld(world.trim(), worldName)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        return matchesSingleWorld(pattern, worldName);
-    }
-
-    private boolean matchesSingleWorld(String pattern, String worldName) {
-        if (pattern.endsWith("*")) {
-            return worldName.startsWith(pattern.substring(0, pattern.length() - 1));
-        }
-        if (pattern.startsWith("*")) {
-            return worldName.endsWith(pattern.substring(1));
-        }
-        return pattern.equals(worldName);
     }
 
     public String parsePlaceholders(Player player, String text) {

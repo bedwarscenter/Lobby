@@ -14,6 +14,7 @@ import net.j4c0b3y.api.menu.MenuHandler;
 import org.bukkit.entity.Player;
 
 @Singleton
+@SuppressWarnings("unused")
 public class MenuService extends AbstractService implements IMenuService {
 
     private final Lobby plugin;

@@ -11,12 +11,10 @@ import net.j4c0b3y.api.menu.annotation.AutoUpdate;
 import net.j4c0b3y.api.menu.button.impl.SimpleButton;
 import net.j4c0b3y.api.menu.layer.impl.BackgroundLayer;
 import net.j4c0b3y.api.menu.layer.impl.ForegroundLayer;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 import xyz.refinedev.phoenix.Phoenix;
 import xyz.refinedev.phoenix.handler.INetworkHandler;
 import xyz.refinedev.phoenix.server.IServerData;
@@ -30,7 +28,6 @@ import java.util.Set;
 @AutoUpdate(20)
 public class LobbySelectorMenu extends Menu {
 
-    private final IDependencyService dependencyService;
     private final PhoenixDependency phoenixDependency;
     private final Phoenix phoenixApi;
     private final List<IServerData> sortedLobbies;
@@ -38,7 +35,6 @@ public class LobbySelectorMenu extends Menu {
 
     public LobbySelectorMenu(Player player, IDependencyService dependencyService, ServerTransferUtil transferUtil) {
         super(color(MenuConfiguration.LOBBY_SELECTOR.TITLE), calculateMenuSize(dependencyService), player);
-        this.dependencyService = dependencyService;
         this.phoenixDependency = dependencyService.getPhoenix();
         this.phoenixApi = phoenixDependency.isApiAvailable() ? phoenixDependency.getApi() : null;
         this.sortedLobbies = fetchAndSortLobbies();

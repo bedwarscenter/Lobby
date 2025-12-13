@@ -25,6 +25,8 @@ dependencies {
     compileOnly "de.marcely.bedwars.addon:Cosmetics-API:${project.findProperty("cosmeticsApiVersion")}"
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
 
+    implementation files('libs/DisplayAPI.jar')
+
     implementation("org.latencyutils:LatencyUtils:${project.findProperty("latencyVersion")}")
 
     implementation("io.lettuce:lettuce-core:${project.findProperty("lettuceVersion")}") {

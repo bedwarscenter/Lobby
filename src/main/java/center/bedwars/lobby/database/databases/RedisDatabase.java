@@ -61,8 +61,7 @@ public class RedisDatabase {
                     .ioThreadPoolSize(4)
                     .computationThreadPoolSize(4)
                     .commandLatencyCollectorOptions(
-                            io.lettuce.core.metrics.CommandLatencyCollectorOptions.disabled()
-                    )
+                            io.lettuce.core.metrics.CommandLatencyCollectorOptions.disabled())
                     .build();
 
             this.redisClient = RedisClient.create(clientResources, redisURI);
@@ -81,8 +80,7 @@ public class RedisDatabase {
 
             this.connectionPool = ConnectionPoolSupport.createGenericObjectPool(
                     () -> redisClient.connect(),
-                    poolConfig
-            );
+                    poolConfig);
 
             this.running = true;
 
@@ -118,17 +116,17 @@ public class RedisDatabase {
     }
 
     public void publish(String channel, byte[] message) {
-        if (!running || connectionPool == null) return;
+        if (!running || connectionPool == null)
+            return;
 
         try (StatefulRedisConnection<String, String> connection = connectionPool.borrowObject()) {
-            StatefulRedisPubSubConnection<byte[], byte[]> pubSubConnection =
-                    redisClient.connectPubSub(io.lettuce.core.codec.ByteArrayCodec.INSTANCE);
+            StatefulRedisPubSubConnection<byte[], byte[]> pubSubConnection = redisClient
+                    .connectPubSub(io.lettuce.core.codec.ByteArrayCodec.INSTANCE);
 
             try {
-                Long receivers = pubSubConnection.sync().publish(
+                pubSubConnection.sync().publish(
                         channel.getBytes(StandardCharsets.UTF_8),
-                        message
-                );
+                        message);
             } finally {
                 pubSubConnection.close();
             }
@@ -139,11 +137,12 @@ public class RedisDatabase {
     }
 
     public void subscribe(String channel, Consumer<byte[]> messageHandler) {
-        if (!running) return;
+        if (!running)
+            return;
 
         try {
-            StatefulRedisPubSubConnection<byte[], byte[]> pubSubConnection =
-                    redisClient.connectPubSub(io.lettuce.core.codec.ByteArrayCodec.INSTANCE);
+            StatefulRedisPubSubConnection<byte[], byte[]> pubSubConnection = redisClient
+                    .connectPubSub(io.lettuce.core.codec.ByteArrayCodec.INSTANCE);
 
             pubSubConnection.addListener(new RedisPubSubAdapter<byte[], byte[]>() {
                 @Override
